@@ -2899,6 +2899,8 @@ function nlLightRoomCandle(){
   const dx=player.pos.x-nlDirector.roomCandle.x, dz=player.pos.z-nlDirector.roomCandle.z;
   if(dx*dx+dz*dz>3.0) return;
   nlDirector.roomCandleLit=true;
+  nlDirector.roomCandleTime=nlDirector.roomCandleDuration;
+  nlDirector.roomCandleFading=false;
   nlDirector.roomCandle.flame.visible=true;
   nlDirector.roomCandleLights.forEach(function(l,i){
     l.userData.target=[3.4,2.4,2.0,2.0][i]||2.2;
