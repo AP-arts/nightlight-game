@@ -1232,6 +1232,56 @@ function buildOutdoorChapter(){
     g.position.set(randRange(-35,35),.22,randRange(-173,-15));g.rotation.y=Math.random()*6.28;g.scale.x=.55+Math.random()*.8;g.scale.z=.55+Math.random()*.8;outdoorGroup.add(g);
   }
 
+  // Dense forest understory: chest-high grass crowds both sides of the trail.
+  // Instancing keeps the forest thick without turning every blade into its own draw call.
+  const bladeGeo=new THREE.ConeGeometry(.055,1,4);
+  const bladeMat=new THREE.MeshStandardMaterial({color:0x152416,roughness:1});
+  const darkBladeMat=new THREE.MeshStandardMaterial({color:0x0d1a0f,roughness:1});
+  const tallBladeMat=new THREE.MeshStandardMaterial({color:0x1b2b18,roughness:1});
+  const grassNormal=new THREE.InstancedMesh(bladeGeo,bladeMat,1450);
+  const grassDark=new THREE.InstancedMesh(bladeGeo,darkBladeMat,850);
+  const grassTall=new THREE.InstancedMesh(bladeGeo,tallBladeMat,360);
+  const grassDummy=new THREE.Object3D();
+
+  function placeGrass(mesh,count,tall){
+    let placed=0;
+    while(placed<count){
+      const x=randRange(-34,34), z=randRange(-173,-15);
+      if(Math.abs(x)<3.15 && Math.random()<0.94) continue;
+      if(z<-149 && Math.abs(x)<6) continue;
+      const h=tall ? randRange(1.05,1.85) : randRange(.62,1.16);
+      const s=randRange(.72,1.28);
+      grassDummy.position.set(x,h*.5,z);
+      grassDummy.rotation.set(randRange(-.07,.07),Math.random()*Math.PI*2,randRange(-.07,.07));
+      grassDummy.scale.set(s,h,s);
+      grassDummy.updateMatrix();
+      mesh.setMatrixAt(placed++,grassDummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate=true;
+    mesh.castShadow=false;
+    mesh.receiveShadow=false;
+    outdoorGroup.add(mesh);
+  }
+  placeGrass(grassNormal,1450,false);
+  placeGrass(grassDark,850,false);
+  placeGrass(grassTall,360,true);
+
+  // A few broader reed clusters break up the repeating blade silhouette.
+  const reedGeo=new THREE.ConeGeometry(.09,1.25,5);
+  const reedMat=new THREE.MeshStandardMaterial({color:0x20351d,roughness:1});
+  const reeds=new THREE.InstancedMesh(reedGeo,reedMat,220);
+  for(let i=0;i<220;i++){
+    const x=randRange(-33,33),z=randRange(-170,-20),h=randRange(.85,1.5);
+    if(Math.abs(x)<3.6 && Math.random()<.9){i--;continue;}
+    grassDummy.position.set(x,h*.5,z);
+    grassDummy.rotation.set(0,Math.random()*Math.PI*2,randRange(-.12,.12));
+    grassDummy.scale.set(randRange(.7,1.25),h,randRange(.7,1.25));
+    grassDummy.updateMatrix();reeds.setMatrixAt(i,grassDummy.matrix);
+  }
+  reeds.instanceMatrix.needsUpdate=true;
+  reeds.castShadow=false;
+  outdoorGroup.add(reeds);
+
   // A muddy, winding trail gives the player a readable route toward the lighthouse.
   const pathMat=new THREE.MeshStandardMaterial({color:0x252018,roughness:1});
   const path=new THREE.Mesh(new THREE.PlaneGeometry(5.2,142),pathMat);
