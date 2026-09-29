@@ -1238,10 +1238,11 @@ function buildOutdoorChapter(){
   const bladeMat=new THREE.MeshStandardMaterial({color:0x152416,roughness:1});
   const darkBladeMat=new THREE.MeshStandardMaterial({color:0x0d1a0f,roughness:1});
   const tallBladeMat=new THREE.MeshStandardMaterial({color:0x1b2b18,roughness:1});
-  const grassNormal=new THREE.InstancedMesh(bladeGeo,bladeMat,24000);
-  const grassDark=new THREE.InstancedMesh(bladeGeo,darkBladeMat,18000);
-  const grassTall=new THREE.InstancedMesh(bladeGeo,tallBladeMat,7000);
+  const grassNormal=new THREE.InstancedMesh(bladeGeo,bladeMat,48000);
+  const grassDark=new THREE.InstancedMesh(bladeGeo,darkBladeMat,36000);
+  const grassTall=new THREE.InstancedMesh(bladeGeo,tallBladeMat,14000);
   const grassDummy=new THREE.Object3D();
+  const grassWindPhase = new Float32Array(48000 + 36000 + 14000);
 
   function placeGrass(mesh,count,tall){
     let placed=0;
@@ -1262,15 +1263,38 @@ function buildOutdoorChapter(){
     mesh.receiveShadow=false;
     outdoorGroup.add(mesh);
   }
-  placeGrass(grassNormal,24000,false);
-  placeGrass(grassDark,18000,false);
-  placeGrass(grassTall,7000,true);
+  placeGrass(grassNormal,48000,false);
+  placeGrass(grassDark,36000,false);
+  placeGrass(grassTall,14000,true);
+
+  // Subtle procedural wind: update a sparse set of grass instances each frame.
+  // The grass remains mostly still, with slow layered sway rather than obvious waving.
+  function animateOutdoorGrass(t){
+    const layers = [
+      { mesh: grassNormal, count: 48000, amp: 0.045, speed: 0.7 },
+      { mesh: grassDark, count: 36000, amp: 0.035, speed: 0.58 },
+      { mesh: grassTall, count: 14000, amp: 0.085, speed: 0.48 }
+    ];
+    const dummy = grassDummy;
+    for(let l=0;l<layers.length;l++){
+      const layer=layers[l], mesh=layer.mesh;
+      for(let i=0;i<layer.count;i+=4){
+        mesh.getMatrixAt(i,dummy.matrix);
+        dummy.matrix.decompose(dummy.position,dummy.quaternion,dummy.scale);
+        const sway=Math.sin(t*layer.speed + i*0.071)*layer.amp + Math.sin(t*layer.speed*0.53 + i*0.019)*layer.amp*0.45;
+        dummy.rotation.set(sway*0.7, dummy.rotation.y, sway);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i,dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate=true;
+    }
+  }
 
   // A few broader reed clusters break up the repeating blade silhouette.
   const reedGeo=new THREE.ConeGeometry(.10,1.25,5);
   const reedMat=new THREE.MeshStandardMaterial({color:0x20351d,roughness:1});
-  const reeds=new THREE.InstancedMesh(reedGeo,reedMat,1200);
-  for(let i=0;i<1200;i++){
+  const reeds=new THREE.InstancedMesh(reedGeo,reedMat,2400);
+  for(let i=0;i<2400;i++){
     const x=randRange(-33,33),z=randRange(-170,-20),h=randRange(.85,1.5);
     if(Math.abs(x)<2.8 && Math.random()<.82){i--;continue;}
     grassDummy.position.set(x,h*.5,z);
@@ -1371,6 +1395,7 @@ function startOutdoorChapter(){
 }
 
 function updateOutdoor(dt,t){
+  if(outdoorMode) animateOutdoorGrass(t);
   if(!outdoorMode||gameState!=='playing')return;
   outdoorTimer+=dt;
 
