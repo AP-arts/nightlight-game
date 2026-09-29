@@ -1219,8 +1219,8 @@ function createSkitterlingMesh() {
   const S = makeMatSet();
   const skin = S.std(0x050505, { rough: 0.85, fill: 0 });
   const skin2 = S.std(0x030303, { rough: 0.9, fill: 0 });
-  const mouthMat = S.std(0x1a1214, { fill: 0 });
-  const clawMat = S.std(0x5f584a);
+  const mouthMat = S.std(0x010101, { rough: 1, fill: 0 });
+  const clawMat = S.std(0x020202, { rough: 0.95, fill: 0 });
   const eyeGlow = S.glow(0xfff0b0); // Eyes remain as the creature's faint silhouette cue in darkness.
   const pupilMat = S.std(0x0c0808, { fill: 0 });
 
@@ -2860,7 +2860,7 @@ brightBtn.addEventListener('click', toggleBrightness);
 
 
 /* ============================== NIGHTLIGHT DIRECTOR'S PASS ============================== */
-const nlDirector={arcs:[],rings:[],dustTimer:0,lanternPulse:0,lanternCooldown:0,bars:document.getElementById('cinematic-bars'),flash:document.getElementById('film-flash'),storyStage:0,roomCandleLit:false,roomCandle:null,roomCandleLights:[]};
+const nlDirector={arcs:[],rings:[],dustTimer:0,lanternPulse:0,lanternCooldown:0,bars:document.getElementById('cinematic-bars'),flash:document.getElementById('film-flash'),storyStage:0,roomCandleLit:false,roomCandle:null,roomCandleLights:[],roomCandleTime:0,roomCandleDuration:15,roomCandleFading:false};
 function nlArc(){const m=new THREE.MeshBasicMaterial({color:0xffc878,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});const o=new THREE.Mesh(new THREE.RingGeometry(.72,.79,28,1,-.95,1.9),m);o.rotation.x=Math.PI/2;o.visible=false;scene.add(o);return o}
 function nlRing(){const m=new THREE.MeshBasicMaterial({color:0xffd18a,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide});const o=new THREE.Mesh(new THREE.RingGeometry(.08,.13,28),m);o.rotation.x=-Math.PI/2;o.visible=false;scene.add(o);return o}
 for(let i=0;i<6;i++)nlDirector.arcs.push({mesh:nlArc(),life:0});for(let i=0;i<10;i++)nlDirector.rings.push({mesh:nlRing(),life:0,max:.34});
@@ -2872,6 +2872,9 @@ if(nlDirector.roomCandle){
   const cd=Math.hypot(player.pos.x-nlDirector.roomCandle.x,player.pos.z-nlDirector.roomCandle.z);
   if(!nlDirector.roomCandleLit && cd<3.2) showObjective('Press R to light the room candle.',.65);
   if(nlDirector.roomCandleLit){
+    nlDirector.roomCandleTime=Math.max(0,nlDirector.roomCandleTime-dt);
+    if(nlDirector.roomCandleTime<=1.0 && !nlDirector.roomCandleFading){ nlDirector.roomCandleFading=true; showObjective('The flame is dying...',1.4); }
+    if(nlDirector.roomCandleTime<=0){ nlDirector.roomCandleLit=false; nlDirector.roomCandleFading=false; nlDirector.roomCandle.flame.visible=false; nlDirector.roomCandleLights.forEach(function(l){l.userData.target=0}); flickerLights.forEach(function(f){f.light.intensity=0;if(f.bulb)f.bulb.visible=false}); showObjective('The room falls dark. Find the candle and light it again.',2.2); }
     const fl=.9+.22*Math.sin(t*18)+.08*Math.sin(t*37);
     nlDirector.roomCandle.flame.scale.y=1.55+fl*.18;
     nlDirector.roomCandleLights.forEach(function(l){l.intensity+=(l.userData.target-l.intensity)*Math.min(1,dt*5)});
@@ -2914,7 +2917,7 @@ const nlPlayerDamage=dealDamageToPlayer;dealDamageToPlayer=function(amount,src){
 const nlStartAttack=startAttack;startAttack=function(p){nlStartAttack(p);nlSlashFX(p)};
 const nlCamera=updateCamera;updateCamera=function(dt){nlCamera(dt);let f=60,s=Math.hypot(player.vel.x,player.vel.z);if(player.state==='attack')f=64;else if(player.state==='dodge')f=68;else if(s>.5)f=61.5;if(wardenSpawned&&warden&&warden.state==='intro')f=55;camera.fov+=(f-camera.fov)*(1-Math.exp(-8*dt));camera.updateProjectionMatrix()};
 const nlSpawnWarden=spawnWarden;spawnWarden=function(){nlSpawnWarden();nlScareMoment()};
-const nlReset=resetGame;resetGame=function(){nlReset();nlDirector.storyStage=0;nlDirector.lanternPulse=0;nlDirector.lanternCooldown=0;nlDirector.roomCandleLit=false;if(nlDirector.roomCandle){nlDirector.roomCandle.flame.visible=false}nlDirector.roomCandleLights.forEach(function(l){l.intensity=0;l.userData.target=0});flickerLights.forEach(function(f){f.light.intensity=0;if(f.bulb)f.bulb.visible=false});nlDirector.bars.classList.remove('on')};
+const nlReset=resetGame;resetGame=function(){nlReset();nlDirector.storyStage=0;nlDirector.lanternPulse=0;nlDirector.lanternCooldown=0;nlDirector.roomCandleLit=false;if(nlDirector.roomCandle){nlDirector.roomCandle.flame.visible=false}nlDirector.roomCandleLights.forEach(function(l){l.intensity=0;l.userData.target=0});nlDirector.roomCandleTime=0;nlDirector.roomCandleFading=false;flickerLights.forEach(function(f){f.light.intensity=0;if(f.bulb)f.bulb.visible=false});nlDirector.bars.classList.remove('on')};
 const nlEncounter=checkEncounterProgress;checkEncounterProgress=function(dt){nlEncounter(dt);if(gameState==='playing'&&nlDirector.storyStage===0){const d=Math.hypot(player.pos.x+7.2,player.pos.z+7.15);if(d<2.1){nlDirector.storyStage=1;showObjective('A child left this here. The candle wax is still warm.',4.5);sfx('rumble')}}if(victoryTriggered)nlDirector.bars.classList.add('on')};
 nlAddStoryProps();
 
