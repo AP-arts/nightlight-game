@@ -1198,6 +1198,8 @@ function animateLizard(e,dt,t){
   applyFlash(m,e.flash);
 }
 
+let animateOutdoorGrass = function(){};
+
 function buildOutdoorChapter(){
   outdoorGroup=new THREE.Group(); outdoorGroup.visible=false; scene.add(outdoorGroup);
 
@@ -1269,16 +1271,19 @@ function buildOutdoorChapter(){
 
   // Subtle procedural wind: update a sparse set of grass instances each frame.
   // The grass remains mostly still, with slow layered sway rather than obvious waving.
-  function animateOutdoorGrass(t){
+  animateOutdoorGrass = function(t){
     const layers = [
       { mesh: grassNormal, count: 48000, amp: 0.045, speed: 0.7 },
       { mesh: grassDark, count: 36000, amp: 0.035, speed: 0.58 },
       { mesh: grassTall, count: 14000, amp: 0.085, speed: 0.48 }
     ];
     const dummy = grassDummy;
+    // Animate a sparse subset each frame so the dense forest stays responsive.
+    // The untouched instances provide the visual mass while the moving subset
+    // sells the overall wind motion.
     for(let l=0;l<layers.length;l++){
       const layer=layers[l], mesh=layer.mesh;
-      for(let i=0;i<layer.count;i+=4){
+      for(let i=0;i<layer.count;i+=16){
         mesh.getMatrixAt(i,dummy.matrix);
         dummy.matrix.decompose(dummy.position,dummy.quaternion,dummy.scale);
         const sway=Math.sin(t*layer.speed + i*0.071)*layer.amp + Math.sin(t*layer.speed*0.53 + i*0.019)*layer.amp*0.45;
@@ -1288,7 +1293,7 @@ function buildOutdoorChapter(){
       }
       mesh.instanceMatrix.needsUpdate=true;
     }
-  }
+  };
 
   // A few broader reed clusters break up the repeating blade silhouette.
   const reedGeo=new THREE.ConeGeometry(.10,1.25,5);
