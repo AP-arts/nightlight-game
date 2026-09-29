@@ -291,6 +291,25 @@
   </div>
 </div>
 
+<script>
+window.addEventListener('error', function (e) {
+  var el = document.getElementById('loading-screen');
+  if (el) {
+    el.classList.remove('hidden');
+    el.innerHTML = '<div class="loading-inner"><p style="color:#e0954a">Game failed to start.</p><p style="color:#a89a80;font-size:.8rem;margin-top:8px">' +
+      String(e.message || 'Unknown JavaScript error') + '</p><p style="color:#777;font-size:.7rem;margin-top:8px">Refresh the page and try again.</p></div>';
+  }
+  console.error('NIGHTLIGHT startup error:', e.error || e.message);
+});
+window.addEventListener('unhandledrejection', function (e) {
+  var el = document.getElementById('loading-screen');
+  if (el) {
+    el.classList.remove('hidden');
+    el.innerHTML = '<div class="loading-inner"><p style="color:#e0954a">Game failed to start.</p><p style="color:#a89a80;font-size:.8rem;margin-top:8px">' +
+      String((e.reason && e.reason.message) || e.reason || 'Unknown error') + '</p></div>';
+  }
+});
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function () {
