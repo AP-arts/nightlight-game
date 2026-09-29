@@ -501,6 +501,8 @@ let audioCtx = null, masterGain = null, muted = false;
 
 let wardenSpawned = false, victoryTriggered = false, doorOpen = false;
 let outdoorMode = false, outdoorGroup = null, rainPoints = null, rainBase = null, lighthouse = null, outdoorTimer = 0;
+let outdoorAmbient = null, outdoorHemi = null, outdoorMoon = null;
+let nlIndoorSceneObjects = [];
 let objectiveFadeTimer = 0;
 
 const flickerLights = []; // {light, base, amp, speed, seed}
@@ -1198,6 +1200,24 @@ function animateLizard(e,dt,t){
 
 function buildOutdoorChapter(){
   outdoorGroup=new THREE.Group(); outdoorGroup.visible=false; scene.add(outdoorGroup);
+
+  // Outdoor level owns its own lighting. The indoor lighting is disabled when this
+  // chapter begins, so this is a genuinely separate level rather than an overlay.
+  outdoorAmbient=new THREE.AmbientLight(0x17231d,.075);
+  outdoorGroup.add(outdoorAmbient);
+  outdoorHemi=new THREE.HemisphereLight(0x27384b,0x050705,.06);
+  outdoorGroup.add(outdoorHemi);
+  outdoorMoon=new THREE.DirectionalLight(0x718aa0,.16);
+  outdoorMoon.position.set(-18,16,-60);
+  outdoorMoon.target.position.set(0,0,-95);
+  outdoorMoon.castShadow=true;
+  outdoorMoon.shadow.mapSize.set(1024,1024);
+  outdoorMoon.shadow.camera.left=-40; outdoorMoon.shadow.camera.right=40;
+  outdoorMoon.shadow.camera.top=35; outdoorMoon.shadow.camera.bottom=-35;
+  outdoorMoon.shadow.camera.far=140;
+  outdoorGroup.add(outdoorMoon);
+  outdoorGroup.add(outdoorMoon.target);
+
   const groundMat=new THREE.MeshStandardMaterial({color:0x111812,roughness:1,metalness:0});
   const mudMat=new THREE.MeshStandardMaterial({color:0x17130f,roughness:1});
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(72,170),groundMat);ground.rotation.x=-Math.PI/2;ground.position.set(0,0,-98);ground.receiveShadow=true;outdoorGroup.add(ground);
@@ -1210,6 +1230,28 @@ function buildOutdoorChapter(){
   for(let i=0;i<330;i++){
     const g=new THREE.Mesh(new THREE.ConeGeometry(.035,.45+Math.random()*.55,4),grassMat);
     g.position.set(randRange(-35,35),.22,randRange(-173,-15));g.rotation.y=Math.random()*6.28;g.scale.x=.55+Math.random()*.8;g.scale.z=.55+Math.random()*.8;outdoorGroup.add(g);
+  }
+
+  // A muddy, winding trail gives the player a readable route toward the lighthouse.
+  const pathMat=new THREE.MeshStandardMaterial({color:0x252018,roughness:1});
+  const path=new THREE.Mesh(new THREE.PlaneGeometry(5.2,142),pathMat);
+  path.rotation.x=-Math.PI/2; path.position.set(0,.012,-86); path.rotation.z=-.035;
+  path.receiveShadow=true; outdoorGroup.add(path);
+  for(let i=0;i<18;i++){
+    const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(.22+Math.random()*.5,0),new THREE.MeshStandardMaterial({color:0x1a1b17,roughness:1}));
+    rock.position.set(randRange(-15,15),.18,randRange(-155,-24)); rock.scale.y=.55+Math.random()*.5;
+    rock.castShadow=true; rock.receiveShadow=true; outdoorGroup.add(rock);
+  }
+  const treeTrunk=new THREE.MeshStandardMaterial({color:0x17130e,roughness:1});
+  const treeCanopy=new THREE.MeshStandardMaterial({color:0x0c120d,roughness:1});
+  for(let i=0;i<34;i++){
+    const side=i%2===0?-1:1;
+    const x=side*(7+Math.random()*19), z=-24-Math.random()*125;
+    const h=3.5+Math.random()*4.5;
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.16,.3,h,6),treeTrunk);
+    trunk.position.set(x,h/2,z); trunk.castShadow=true; outdoorGroup.add(trunk);
+    const crown=new THREE.Mesh(new THREE.ConeGeometry(1.2+Math.random()*.8,3.2+Math.random()*2.2,7),treeCanopy);
+    crown.position.set(x,h+1.0,z); crown.castShadow=true; outdoorGroup.add(crown);
   }
   // distant low hills / tree silhouettes
   const hillMat=new THREE.MeshStandardMaterial({color:0x070b08,roughness:1});
@@ -1245,8 +1287,14 @@ buildOutdoorChapter();
 function startOutdoorChapter(){
   outdoorMode=true;outdoorTimer=0;
   if(outdoorGroup) outdoorGroup.visible=true;
+
+  // Hard scene transition: hide the entire indoor level, not just its enemies.
+  // Wick remains in the scene because he is the player for both chapters.
+  nlIndoorSceneObjects.forEach(function(o){o.visible=false;});
   player.autoWalk=false;player.state='free';player.stateTime=0;player.vel.set(0,0,0);player.pos.set(0,0,-17);player.facing=Math.PI;
+  player.mesh.group.visible=true;
   player.mesh.group.position.copy(player.pos);player.mesh.group.rotation.y=player.facing;
+  camYaw=Math.PI;camPitch=0;camSmoothPos=null;
   for(let i=0;i<enemies.length;i++) {
     if(enemies[i].type==='skitterling'||enemies[i].type==='warden'){
       enemies[i].mesh.group.visible=false; enemies[i].active=false; enemies[i].state='dormant';
@@ -1258,8 +1306,11 @@ function startOutdoorChapter(){
     createLizardEnemy(new THREE.Vector3(-12,0,-108));
   }
   enemies.forEach(e=>{if(e.type==='lizard'){e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);}});
-  scene.background.set(0x05090a);scene.fog=new THREE.FogExp2(0x091014,.032);
-  if(moonLight) moonLight.intensity=.035;
+  scene.background.set(0x05090a);scene.fog=new THREE.FogExp2(0x091014,.024);
+  if(moonLight) moonLight.intensity=0;
+  if(outdoorAmbient) outdoorAmbient.intensity=.075;
+  if(outdoorHemi) outdoorHemi.intensity=.06;
+  if(outdoorMoon) outdoorMoon.intensity=.16;
   showObjective('Find the lighthouse. Stay close to your light.',5);
   nlDirector.bars.classList.remove('on');
   hudTarget=null;hudTargetTimer=0;
@@ -1269,19 +1320,6 @@ function startOutdoorChapter(){
 function updateOutdoor(dt,t){
   if(!outdoorMode||gameState!=='playing')return;
   outdoorTimer+=dt;
-  // Let the player see the rain, mud and lighthouse for a few seconds after
-  // escaping the boss arena, then end the chapter with the existing Play Again UI.
-  if(outdoorTimer>=4.5){
-    outdoorMode=false;
-    gameState='victory';
-    player.autoWalk=false;
-    hud.classList.add('hidden');
-    touchControls.classList.add('hidden');
-    victoryScreen.classList.remove('hidden');
-    nlDirector.bars.classList.remove('on');
-    if(document.pointerLockElement===canvas) document.exitPointerLock();
-    return;
-  }
   player.pos.x=clamp(player.pos.x,-34,34);player.pos.z=clamp(player.pos.z,-174,-14.2);
   if(rainPoints){
     const a=rainPoints.geometry.attributes.position.array;
@@ -1298,7 +1336,16 @@ function updateOutdoor(dt,t){
     const beacon=lighthouse.children[3]; if(beacon) beacon.material.opacity=.75+.25*Math.sin(t*3.2);
   }
   for(let i=0;i<enemies.length;i++) if(enemies[i].type==='lizard') updateLizard(enemies[i],dt);
-  if(Math.hypot(player.pos.x,player.pos.z+156)<5.5){showObjective('The lighthouse door is ahead.',2.2)}
+  if(Math.hypot(player.pos.x,player.pos.z+156)<7){
+    outdoorMode=false;
+    gameState='victory';
+    player.autoWalk=false;
+    hud.classList.add('hidden');
+    touchControls.classList.add('hidden');
+    victoryScreen.classList.remove('hidden');
+    nlDirector.bars.classList.remove('on');
+    if(document.pointerLockElement===canvas) document.exitPointerLock();
+  }
 }
 
 
@@ -2730,7 +2777,7 @@ function updateCamera(dt) {
   camRaycaster.set(_camLook, _camRayDir);
   camRaycaster.near = 0.05;
   camRaycaster.far = fullDist;
-  const hits = camRaycaster.intersectObjects(cameraBlockers, false);
+  const hits = outdoorMode ? [] : camRaycaster.intersectObjects(cameraBlockers, false);
   let allowed = fullDist;
   for (let i = 0; i < hits.length; i++) if (hits[i].distance < allowed) allowed = hits[i].distance;
   allowed = Math.max(0.6, allowed - 0.22);
@@ -3118,6 +3165,10 @@ let lastHitBy = null;
 function resetGame() {
   outdoorMode=false; outdoorTimer=0;
   if(outdoorGroup) outdoorGroup.visible=false;
+  nlIndoorSceneObjects.forEach(function(o){o.visible=true;});
+  if(outdoorAmbient) outdoorAmbient.intensity=0;
+  if(outdoorHemi) outdoorHemi.intensity=0;
+  if(outdoorMoon) outdoorMoon.intensity=0;
   scene.background.set(0x050408); scene.fog=new THREE.FogExp2(0x0a0c16,0.02);
   if(moonLight) moonLight.intensity=0.07;
   for(let i=enemies.length-1;i>=0;i--){ if(enemies[i].type==='lizard'){scene.remove(enemies[i].mesh.group);enemies.splice(i,1);} }
@@ -3273,6 +3324,12 @@ const nlSpawnWarden=spawnWarden;spawnWarden=function(){nlSpawnWarden();nlScareMo
 const nlReset=resetGame;resetGame=function(){nlReset();nlDirector.storyStage=0;nlDirector.lanternPulse=0;nlDirector.lanternCooldown=0;nlDirector.roomCandleLit=false;if(nlDirector.roomCandle){nlDirector.roomCandle.flame.visible=false}nlDirector.roomCandleLights.forEach(function(l){l.intensity=0;l.userData.target=0});nlDirector.roomCandleTime=0;nlDirector.roomCandleFading=false;flickerLights.forEach(function(f){f.light.intensity=0;if(f.bulb)f.bulb.visible=false});nlDirector.bars.classList.remove('on')};
 const nlEncounter=checkEncounterProgress;checkEncounterProgress=function(dt){nlEncounter(dt);if(gameState==='playing'&&nlDirector.storyStage===0){const d=Math.hypot(player.pos.x+7.2,player.pos.z+7.15);if(d<2.1){nlDirector.storyStage=1;showObjective('A child left this here. The candle wax is still warm.',4.5);sfx('rumble')}}if(victoryTriggered)nlDirector.bars.classList.add('on')};
 nlAddStoryProps();
+
+// Everything that exists here belongs to the indoor chapter. The outdoor
+// chapter is switched on/off as a separate scene state.
+nlIndoorSceneObjects = scene.children.filter(function(o){
+  return o !== outdoorGroup && o !== player.mesh.group;
+});
 
 /* ============================== MAIN LOOP ============================== */
 function animate(now) {
