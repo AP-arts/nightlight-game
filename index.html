@@ -2633,7 +2633,10 @@ function updateEnemy(e, dt) {
       break;
     }
     case 'intro': {
-      if (e.stateTime >= e.introTimer) { e.alerted = true; e.seeTimer = 0; enterState(e, 'chase'); }
+      if (e.stateTime >= e.introTimer) {
+        e.alerted = true; e.seeTimer = 0; enterState(e, 'chase');
+        if (e.type === 'warden') nlDirector.bars.classList.remove('on');
+      }
       break;
     }
     default: break;
@@ -2738,7 +2741,7 @@ function finishVictory() {
 }
 
 function checkEncounterProgress(dt) {
-  if (gameState !== 'playing') return;
+  if (gameState !== 'playing' || outdoorMode) return;
   if (!wardenSpawned) {
     let alive = 0;
     for (let i = 0; i < enemies.length; i++) if (enemies[i].type === 'skitterling' && enemies[i].state !== 'dead') alive++;
