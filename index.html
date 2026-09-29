@@ -1269,6 +1269,19 @@ function startOutdoorChapter(){
 function updateOutdoor(dt,t){
   if(!outdoorMode||gameState!=='playing')return;
   outdoorTimer+=dt;
+  // Let the player see the rain, mud and lighthouse for a few seconds after
+  // escaping the boss arena, then end the chapter with the existing Play Again UI.
+  if(outdoorTimer>=4.5){
+    outdoorMode=false;
+    gameState='victory';
+    player.autoWalk=false;
+    hud.classList.add('hidden');
+    touchControls.classList.add('hidden');
+    victoryScreen.classList.remove('hidden');
+    nlDirector.bars.classList.remove('on');
+    if(document.pointerLockElement===canvas) document.exitPointerLock();
+    return;
+  }
   player.pos.x=clamp(player.pos.x,-34,34);player.pos.z=clamp(player.pos.z,-174,-14.2);
   if(rainPoints){
     const a=rainPoints.geometry.attributes.position.array;
