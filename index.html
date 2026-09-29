@@ -2870,7 +2870,7 @@ function nlScareMoment(){nlDirector.bars.classList.add('on');const old=flickerLi
 function nlDirectorUpdate(dt,t){for(const a of nlDirector.arcs){if(a.life<=0)continue;a.life-=dt;const u=Math.max(0,a.life/.18);a.mesh.material.opacity=u*.78;a.mesh.scale.setScalar(1.15-u*.15);if(a.life<=0)a.mesh.visible=false}for(const r of nlDirector.rings){if(r.life<=0)continue;r.life-=dt;const u=1-r.life/r.max;r.mesh.material.opacity=(1-u)*.8;r.mesh.scale.setScalar(.45+u*2.4);if(r.life<=0)r.mesh.visible=false}if(gameState==='playing'){const speed=Math.hypot(player.vel.x,player.vel.z);nlDirector.dustTimer-=dt;if(player.grounded&&speed>.8&&nlDirector.dustTimer<=0){nlDirector.dustTimer=.16;emitBurst(player.pos.x,.035,player.pos.z,3,.55,.46,.34,.65,.38,.25,2.5)}nlDirector.lanternCooldown=Math.max(0,nlDirector.lanternCooldown-dt);nlDirector.lanternPulse=Math.max(0,nlDirector.lanternPulse-dt);if(player.mesh&&player.mesh.lanternLight){const focus=nlDirector.lanternPulse>0;const flick=.1*Math.sin(t*17)+.06*Math.sin(t*31.7+1.7);player.mesh.lanternLight.intensity=(focus?3.0:1.15)+flick*.55;player.mesh.lanternLight.distance=focus?8:5.8;player.mesh.lanternGlow.material.opacity=focus?.88:.48+.06*Math.sin(t*11)}for(const e of enemies){if(e.type!=='skitterling'||e.state==='dead'||e.state==='dormant')continue;const d=Math.hypot(e.pos.x-player.pos.x,e.pos.z-player.pos.z);if(e.mesh.eyeMats)e.mesh.eyeMats.forEach(m=>m.emissiveIntensity=d<5?2.8:1.2);if(d<5&&nlDirector.lanternPulse>0&&e.state==='chase'){e.vel.x*=.88;e.vel.z*=.88}}
 if(nlDirector.roomCandle){
   const cd=Math.hypot(player.pos.x-nlDirector.roomCandle.x,player.pos.z-nlDirector.roomCandle.z);
-  if(!nlDirector.roomCandleLit && cd<3.2) showObjective('Press R to light the room candle.',.65);
+  if(!nlDirector.roomCandleLit && cd<4.5) showObjective('Press R to light the room candle.',.65);
   if(nlDirector.roomCandleLit){
     nlDirector.roomCandleTime=Math.max(0,nlDirector.roomCandleTime-dt);
     if(nlDirector.roomCandleTime<=1.0 && !nlDirector.roomCandleFading){ nlDirector.roomCandleFading=true; showObjective('The flame is dying...',1.4); }
@@ -2897,14 +2897,14 @@ const scratch=new THREE.MeshStandardMaterial({color:0x6f3a3a,roughness:1});for(l
 function nlLightRoomCandle(){
   if(nlDirector.roomCandleLit || !nlDirector.roomCandle || gameState!=='playing') return;
   const dx=player.pos.x-nlDirector.roomCandle.x, dz=player.pos.z-nlDirector.roomCandle.z;
-  if(dx*dx+dz*dz>3.0) return;
+  if(dx*dx+dz*dz>4.5*4.5) return;
   nlDirector.roomCandleLit=true;
   nlDirector.roomCandleTime=nlDirector.roomCandleDuration;
   nlDirector.roomCandleFading=false;
   nlDirector.roomCandle.flame.visible=true;
   nlDirector.roomCandleLights.forEach(function(l,i){
     l.userData.target=[3.4,2.4,2.0,2.0][i]||2.2;
-    l.intensity=0;
+    l.intensity=l.userData.target;
   });
   flickerLights.forEach(function(f){ if(f.bulb) f.bulb.visible=true; });
   showObjective('The room wakes. Every shadow has somewhere to hide.',3.2);
@@ -2912,7 +2912,7 @@ function nlLightRoomCandle(){
   sfx('pickup'); triggerShake(.12,.035);
 }
 window.addEventListener('keydown',function(e){if(e.repeat||gameState!=='playing')return;
-if(e.key.toLowerCase()==='r') nlLightRoomCandle();
+if(e.key.toLowerCase()==='r'||e.key.toLowerCase()==='e') nlLightRoomCandle();
 if(e.key.toLowerCase()==='f'&&nlDirector.lanternCooldown<=0){nlDirector.lanternPulse=.75;nlDirector.lanternCooldown=2.5;emitBurst(player.pos.x,player.pos.y+.55,player.pos.z,14,1,.68,.28,2.2,.55,1.2,3);sfx('block');triggerShake(.08,.025)}});
 const nlEnemyDamage=enemyTakeDamage;enemyTakeDamage=function(e,dmg,dx,dz){nlEnemyDamage(e,dmg,dx,dz);nlImpactFX(e.pos.x,e.pos.y+e.height*.55,e.pos.z,e.type==='warden')};
 const nlPlayerDamage=dealDamageToPlayer;dealDamageToPlayer=function(amount,src){const before=player.hp;const r=nlPlayerDamage(amount,src);if(r&&player.hp<before)nlImpactFX(player.pos.x+Math.sin(src.facing)*.25,.5,player.pos.z+Math.cos(src.facing)*.25,src.type==='warden');return r};
