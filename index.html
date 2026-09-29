@@ -1770,14 +1770,24 @@ function moveWithCollision(ent, dx, dz) {
 function stepVertical(ent, dt) {
   const wasGrounded = ent.grounded;
   ent.vel.y = Math.max(ent.vel.y - CFG.gravity * dt, -38);
+  const prevY = ent.pos.y;
+
+  // Outdoor chapter: use only the flat mud floor at y=0.
+  // Keep normal jump/fall physics; simply skip all indoor wall/ceiling colliders.
   if (outdoorMode) {
-    ent.pos.y = 0;
-    ent.vel.y = 0;
-    ent.grounded = true;
+    let newY = prevY + ent.vel.y * dt;
     ent.landed = 0;
+    if (ent.vel.y <= 0 && newY <= 0) {
+      if (!wasGrounded && ent.vel.y < -5) ent.landed = -ent.vel.y;
+      newY = 0;
+      ent.vel.y = 0;
+      ent.grounded = true;
+    } else {
+      ent.grounded = false;
+    }
+    ent.pos.y = newY;
     return;
   }
-  const prevY = ent.pos.y;
   let newY = prevY + ent.vel.y * dt;
   ent.landed = 0;
   if (ent.vel.y <= 0) {
