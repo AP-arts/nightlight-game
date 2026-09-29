@@ -1037,10 +1037,7 @@ function buildLevel() {
   dustPoints.frustumCulled = false;
   scene.add(dustPoints);
 
-  // candle stubs restore health and reward climbing
-  addPickup(4.0, 1.6, -4.6);     // on the table
-  addPickup(-9.3, 2.6, 3.5);     // on the bookcase
-  addPickup(6.9, 0.92, 3.0);     // on a chair seat
+  // Small decorative/pickup candles removed — the room candle is the only environmental candle.
 
   scene.updateMatrixWorld(true);
 }
