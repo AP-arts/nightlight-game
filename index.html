@@ -1076,8 +1076,8 @@ function updateLevel(dt, t) {
 const clothTex = makeCanvasTexture(drawClothTexture, 128, 128, 2, 2);
 const FLASH_COLOR = new THREE.Color(0.95, 0.78, 0.66);
 
-// Every character material is transparent from creation (so death can fade without recompiles) and
-// carries a small emissive "fill" so figures never vanish completely in the darkest corners.
+// Character materials are transparent from creation so death can fade without recompiles.
+// Enemies receive no emissive body fill: outside actual light they should fall into silhouette.
 function makeMatSet() {
   const set = { all: [], flash: [] };
   set.std = function (hex, o) {
@@ -1089,7 +1089,7 @@ function makeMatSet() {
       opacity: 1,
       side: o.side || THREE.FrontSide,
     });
-    const fill = o.fill !== undefined ? o.fill : 0.14;
+    const fill = o.fill !== undefined ? o.fill : 0;
     if (o.map) {
       m.map = o.map;
       m.emissiveMap = o.map;
@@ -1221,7 +1221,7 @@ function createSkitterlingMesh() {
   const skin2 = S.std(0x8d8976, { rough: 0.7 });
   const mouthMat = S.std(0x1a1214, { fill: 0 });
   const clawMat = S.std(0x5f584a);
-  const eyeGlow = S.glow(0xfff0b0);
+  const eyeGlow = S.glow(0xfff0b0); // Eyes remain as the creature's faint silhouette cue in darkness.
   const pupilMat = S.std(0x0c0808, { fill: 0 });
 
   const group = new THREE.Group();
@@ -1285,7 +1285,7 @@ function createWardenMesh() {
   const iron = S.std(0x757984, { rough: 0.5, metal: 0.45, fill: 0.16 });
   const wood = S.std(0x6a4a30);
   const handMat = S.std(0xcabba8);
-  const slitMat = S.glow(0xff8a44);
+  const slitMat = S.glow(0xff8a44); // Mask slits stay faintly visible even when the body falls into shadow.
 
   const group = new THREE.Group();
 
