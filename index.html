@@ -540,10 +540,11 @@ function createLighting() {
     const l = new THREE.PointLight(color, base, dist, 2);
     l.position.set(x, y, z);
     scene.add(l);
-    flickerLights.push({ light: l, base: base, amp: base * 0.3, speed: randRange(2.5, 4.5), seed: Math.random() * 100 });
     const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), new THREE.MeshBasicMaterial({ color: 0xffd9a0, toneMapped: false }));
     bulb.position.set(x, y, z);
+    bulb.visible = false;
     scene.add(bulb);
+    flickerLights.push({ light: l, bulb: bulb, base: base, amp: base * 0.3, speed: randRange(2.5, 4.5), seed: Math.random() * 100 });
   }
   addFlicker(-8, 3.3, -8, 0xffc078, 0.28, 7);
   addFlicker(8, 3.3, -8, 0xffc078, 0.28, 7);
@@ -557,8 +558,10 @@ function updateLights(t) {
   for (let i = 0; i < flickerLights.length; i++) {
     const f = flickerLights[i];
     const n = Math.sin(t * f.speed + f.seed) * 0.5 + Math.sin(t * f.speed * 2.7 + f.seed * 1.3) * 0.3 + Math.sin(t * f.speed * 13 + f.seed) * 0.2;
-    const roomScale = (typeof nlDirector !== 'undefined' && nlDirector.roomCandleLit) ? 1.9 : 0.22;
+    const roomLit = typeof nlDirector !== 'undefined' && nlDirector.roomCandleLit;
+    const roomScale = roomLit ? 1.9 : 0;
     f.light.intensity = Math.max(0, (f.base + f.amp * n) * roomScale);
+    if (f.bulb) f.bulb.visible = roomLit;
   }
 }
 
@@ -2870,7 +2873,7 @@ function nlScareMoment(){nlDirector.bars.classList.add('on');const old=flickerLi
 function nlDirectorUpdate(dt,t){for(const a of nlDirector.arcs){if(a.life<=0)continue;a.life-=dt;const u=Math.max(0,a.life/.18);a.mesh.material.opacity=u*.78;a.mesh.scale.setScalar(1.15-u*.15);if(a.life<=0)a.mesh.visible=false}for(const r of nlDirector.rings){if(r.life<=0)continue;r.life-=dt;const u=1-r.life/r.max;r.mesh.material.opacity=(1-u)*.8;r.mesh.scale.setScalar(.45+u*2.4);if(r.life<=0)r.mesh.visible=false}if(gameState==='playing'){const speed=Math.hypot(player.vel.x,player.vel.z);nlDirector.dustTimer-=dt;if(player.grounded&&speed>.8&&nlDirector.dustTimer<=0){nlDirector.dustTimer=.16;emitBurst(player.pos.x,.035,player.pos.z,3,.55,.46,.34,.65,.38,.25,2.5)}nlDirector.lanternCooldown=Math.max(0,nlDirector.lanternCooldown-dt);nlDirector.lanternPulse=Math.max(0,nlDirector.lanternPulse-dt);if(player.mesh&&player.mesh.lanternLight){const focus=nlDirector.lanternPulse>0;const flick=.1*Math.sin(t*17)+.06*Math.sin(t*31.7+1.7);player.mesh.lanternLight.intensity=(focus?3.0:1.15)+flick*.55;player.mesh.lanternLight.distance=focus?8:5.8;player.mesh.lanternGlow.material.opacity=focus?.88:.48+.06*Math.sin(t*11)}for(const e of enemies){if(e.type!=='skitterling'||e.state==='dead'||e.state==='dormant')continue;const d=Math.hypot(e.pos.x-player.pos.x,e.pos.z-player.pos.z);if(e.mesh.eyeMats)e.mesh.eyeMats.forEach(m=>m.emissiveIntensity=d<5?2.8:1.2);if(d<5&&nlDirector.lanternPulse>0&&e.state==='chase'){e.vel.x*=.88;e.vel.z*=.88}}
 if(nlDirector.roomCandle){
   const cd=Math.hypot(player.pos.x-nlDirector.roomCandle.x,player.pos.z-nlDirector.roomCandle.z);
-  if(!nlDirector.roomCandleLit && cd<3.2) showObjective('Press R to light the room candle.',.18);
+  if(!nlDirector.roomCandleLit && cd<3.2) showObjective('Press R to light the room candle.',.65);
   if(nlDirector.roomCandleLit){
     const fl=.9+.22*Math.sin(t*18)+.08*Math.sin(t*37);
     nlDirector.roomCandle.flame.scale.y=1.55+fl*.18;
@@ -2897,8 +2900,11 @@ function nlLightRoomCandle(){
   if(dx*dx+dz*dz>3.0) return;
   nlDirector.roomCandleLit=true;
   nlDirector.roomCandle.flame.visible=true;
-  nlDirector.roomCandleLights.forEach(function(l){l.intensity=l.userData.target||2.4;});
-  nlDirector.roomCandleLights.forEach(function(l,i){l.userData.target=[3.4,2.4,2.0,2.0][i]||2.2; l.intensity=0;});
+  nlDirector.roomCandleLights.forEach(function(l,i){
+    l.userData.target=[3.4,2.4,2.0,2.0][i]||2.2;
+    l.intensity=0;
+  });
+  flickerLights.forEach(function(f){ if(f.bulb) f.bulb.visible=true; });
   showObjective('The room wakes. Every shadow has somewhere to hide.',3.2);
   emitBurst(nlDirector.roomCandle.x,1.62,nlDirector.roomCandle.z,24,1,.75,.3,2.8,.7,1.5,-.3);
   sfx('pickup'); triggerShake(.12,.035);
@@ -2911,7 +2917,7 @@ const nlPlayerDamage=dealDamageToPlayer;dealDamageToPlayer=function(amount,src){
 const nlStartAttack=startAttack;startAttack=function(p){nlStartAttack(p);nlSlashFX(p)};
 const nlCamera=updateCamera;updateCamera=function(dt){nlCamera(dt);let f=60,s=Math.hypot(player.vel.x,player.vel.z);if(player.state==='attack')f=64;else if(player.state==='dodge')f=68;else if(s>.5)f=61.5;if(wardenSpawned&&warden&&warden.state==='intro')f=55;camera.fov+=(f-camera.fov)*(1-Math.exp(-8*dt));camera.updateProjectionMatrix()};
 const nlSpawnWarden=spawnWarden;spawnWarden=function(){nlSpawnWarden();nlScareMoment()};
-const nlReset=resetGame;resetGame=function(){nlReset();nlDirector.storyStage=0;nlDirector.lanternPulse=0;nlDirector.lanternCooldown=0;nlDirector.roomCandleLit=false;if(nlDirector.roomCandle){nlDirector.roomCandle.flame.visible=false}nlDirector.roomCandleLights.forEach(function(l){l.intensity=0;l.userData.target=0});nlDirector.bars.classList.remove('on')};
+const nlReset=resetGame;resetGame=function(){nlReset();nlDirector.storyStage=0;nlDirector.lanternPulse=0;nlDirector.lanternCooldown=0;nlDirector.roomCandleLit=false;if(nlDirector.roomCandle){nlDirector.roomCandle.flame.visible=false}nlDirector.roomCandleLights.forEach(function(l){l.intensity=0;l.userData.target=0});flickerLights.forEach(function(f){f.light.intensity=0;if(f.bulb)f.bulb.visible=false});nlDirector.bars.classList.remove('on')};
 const nlEncounter=checkEncounterProgress;checkEncounterProgress=function(dt){nlEncounter(dt);if(gameState==='playing'&&nlDirector.storyStage===0){const d=Math.hypot(player.pos.x+7.2,player.pos.z+7.15);if(d<2.1){nlDirector.storyStage=1;showObjective('A child left this here. The candle wax is still warm.',4.5);sfx('rumble')}}if(victoryTriggered)nlDirector.bars.classList.add('on')};
 nlAddStoryProps();
 
