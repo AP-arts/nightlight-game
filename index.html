@@ -479,6 +479,7 @@ let wardenSpawned = false, victoryTriggered = false, doorOpen = false;
 let objectiveFadeTimer = 0;
 
 const flickerLights = []; // {light, base, amp, speed, seed}
+const nlVolumetrics = [];
 let moonLight = null;
 
 /* ============================== RENDERER / SCENE / CAMERA ============================== */
@@ -570,6 +571,14 @@ function updateLights(t) {
     nlDirector.roomCandleLights.forEach(function(l) {
       if (!roomLit) l.intensity = 0;
     });
+  }
+  // Soft volumetric shafts: visual light cones, driven by the same candle state.
+  for (let i = 0; i < nlVolumetrics.length; i++) {
+    const v = nlVolumetrics[i];
+    const f = flickerLights[i % flickerLights.length];
+    const n = f ? (Math.sin(t * f.speed + f.seed) * 0.5 + 0.5) : 0.5;
+    v.material.opacity = roomLit ? (0.022 + n * 0.012) : 0;
+    v.visible = roomLit;
   }
 }
 
@@ -923,6 +932,18 @@ function buildLevel() {
     shade.position.set(p[0], p[1] + 0.2, p[2]);
     shade.castShadow = true;
     scene.add(shade);
+  });
+  // Subtle volumetric cones make the hanging fixtures read as actual light sources.
+  // They are invisible while the room candle is out.
+  lamps.slice(0,4).forEach(function(p){
+    const geo=new THREE.ConeGeometry(1.15,3.15,32,1,true);
+    const mat=new THREE.MeshBasicMaterial({color:0xffb56b,transparent:true,opacity:0,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false});
+    const cone=new THREE.Mesh(geo,mat);
+    cone.position.set(p[0],1.78,p[2]);
+    cone.frustumCulled=false;
+    cone.visible=false;
+    scene.add(cone);
+    nlVolumetrics.push({mesh:cone,material:mat});
   });
 
   // the oversized table (the Warden cannot walk under it, Skitterlings can)
@@ -2889,7 +2910,17 @@ if(nlDirector.roomCandle){
   }
 }}
 }
-function nlAddStoryProps(){const wood=new THREE.MeshStandardMaterial({color:0x3a2519,roughness:.92}),cloth=new THREE.MeshStandardMaterial({color:0x5d3037,roughness:1}),wax=new THREE.MeshStandardMaterial({color:0xd8c7a8,roughness:.9});function box(x,y,z,sx,sy,sz,mat){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;scene.add(o);return o}box(-7.2,.65,-8,1,1.3,.95,wood);box(-7.2,1.35,-8,1,.18,.95,wood);box(-7.2,.24,-7.15,.28,.45,.18,cloth);for(let i=0;i<3;i++){const c=box(-5.8+i*.42,.12,-7.05,.1,.24,.1,wax);const f=new THREE.PointLight(0xffb45e,.42,2.2,2);f.position.set(c.position.x,.34,c.position.z);scene.add(f)}
+function nlAddStoryProps(){const wood=new THREE.MeshStandardMaterial({color:0x3a2519,roughness:.92}),woodEdge=new THREE.MeshStandardMaterial({color:0x5a3824,roughness:.82}),darkWood=new THREE.MeshStandardMaterial({color:0x241710,roughness:.95}),cloth=new THREE.MeshStandardMaterial({color:0x5d3037,roughness:1}),wax=new THREE.MeshStandardMaterial({color:0xd8c7a8,roughness:.9});function box(x,y,z,sx,sy,sz,mat){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;scene.add(o);return o}box(-7.2,.65,-8,1,1.3,.95,wood);box(-7.2,1.35,-8,1,.18,.95,wood);box(-7.2,.24,-7.15,.28,.45,.18,cloth);
+// Extra geometry details: carved table/chair/shelf trims give the blockout more silhouette and depth.
+function trim(x,y,z,sx,sy,sz,mat){return box(x,y,z,sx,sy,sz,mat)}
+trim(3.5,1.62,-4.5,5.75,.07,3.34,woodEdge);
+trim(3.5,1.55,-4.5,5.55,.045,3.12,darkWood);
+[[1.2,-5.6],[5.8,-5.6],[1.2,-3.4],[5.8,-3.4]].forEach(function(p){trim(p[0],.9,p[1],.52,.08,.52,woodEdge);});
+trim(-9.3,2.72,3.2,1.52,.12,6.1,woodEdge);
+trim(-9.3,.12,3.2,1.52,.12,6.1,darkWood);
+// Detailed chair backs: horizontal slats and top rails.
+[[6.9,3.0],[-3.2,8.6]].forEach(function(p){for(let j=0;j<3;j++)trim(p[0],1.25+j*.38,p[1],1.18,.075,.10,woodEdge);trim(p[0],1.9,p[1],1.48,.12,.18,darkWood);});
+// Hanging lamp volumetrics are added below once the level lights exist.
 // The central room candle is the player's first major light objective.
 const pedestal=box(-4.55,.38,-7.05,.62,.76,.62,wood);
 const candle=new THREE.Mesh(new THREE.CylinderGeometry(.16,.19,.72,12),wax);
