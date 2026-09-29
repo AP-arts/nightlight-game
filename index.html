@@ -1314,6 +1314,8 @@ function startOutdoorChapter(){
   if(outdoorMoon) outdoorMoon.intensity=.16;
   showObjective('Find the lighthouse. Stay close to your light.',5);
   nlDirector.bars.classList.remove('on');
+  camera.fov=60;
+  camera.updateProjectionMatrix();
   hudTarget=null;hudTargetTimer=0;
   sfx('rumble',.45);
 }
@@ -1321,6 +1323,20 @@ function startOutdoorChapter(){
 function updateOutdoor(dt,t){
   if(!outdoorMode||gameState!=='playing')return;
   outdoorTimer+=dt;
+
+  // Dedicated outdoor movement fallback. The chapter is intentionally independent
+  // from the indoor physics/collision grid; if the normal controller is blocked by
+  // a stale indoor state, raw WASD/joystick input still moves Wick immediately.
+  const omx=input.moveX, omz=input.moveZ;
+  const olen=Math.hypot(omx,omz);
+  if(player.state==='free' && olen>0.01 && Math.hypot(player.vel.x,player.vel.z)<0.02){
+    const fx=Math.sin(camYaw), fz=Math.cos(camYaw);
+    const dx=fx*omz-fz*omx, dz=fz*omz+fx*omx;
+    const inv=olen>1?1/olen:1;
+    player.pos.x+=dx*CFG.moveSpeed*dt*inv;
+    player.pos.z+=dz*CFG.moveSpeed*dt*inv;
+    player.facing=Math.atan2(dx,dz);
+  }
   player.pos.x=clamp(player.pos.x,-34,34);player.pos.z=clamp(player.pos.z,-174,-14.2);
   if(rainPoints){
     const a=rainPoints.geometry.attributes.position.array;
@@ -1707,6 +1723,7 @@ function overlapXZ(c, x, z, r) {
 }
 
 function collidesAt(x, z, r, feetY, h) {
+  if (outdoorMode) return null;
   const y0 = feetY + CFG.groundBuffer, y1 = feetY + h;
   for (let i = 0; i < wallColliders.length; i++) {
     const c = wallColliders[i];
@@ -1717,6 +1734,7 @@ function collidesAt(x, z, r, feetY, h) {
 }
 
 function supportHeight(x, z, r, feetY) {
+  if (outdoorMode) return 0;
   let best = 0;   // the floor is an implicit plane at y = 0
   const tol = CFG.groundBuffer + 0.01;
   for (let i = 0; i < wallColliders.length; i++) {
@@ -2635,7 +2653,11 @@ function updateEnemy(e, dt) {
     case 'intro': {
       if (e.stateTime >= e.introTimer) {
         e.alerted = true; e.seeTimer = 0; enterState(e, 'chase');
-        if (e.type === 'warden') nlDirector.bars.classList.remove('on');
+        if (e.type === 'warden') {
+          nlDirector.bars.classList.remove('on');
+          camera.fov=60;
+          camera.updateProjectionMatrix();
+        }
       }
       break;
     }
@@ -3286,7 +3308,7 @@ function nlRing(){const m=new THREE.MeshBasicMaterial({color:0xffd18a,transparen
 for(let i=0;i<6;i++)nlDirector.arcs.push({mesh:nlArc(),life:0});for(let i=0;i<10;i++)nlDirector.rings.push({mesh:nlRing(),life:0,max:.34});
 function nlSlashFX(p){let s=nlDirector.arcs.find(x=>x.life<=0)||nlDirector.arcs[0];s.life=.18;s.mesh.visible=true;s.mesh.position.set(p.pos.x,p.pos.y+.68,p.pos.z);s.mesh.rotation.y=p.facing;s.mesh.material.opacity=.78}
 function nlImpactFX(x,y,z,big){let s=nlDirector.rings.find(x=>x.life<=0)||nlDirector.rings[0];s.life=s.max=.34;s.mesh.visible=true;s.mesh.position.set(x,.035,z);s.mesh.scale.setScalar(.45);s.mesh.material.opacity=big?.85:.65;emitBurst(x,y,z,big?20:8,1,.62,.24,big?5.5:3.5,.5,1.4,5);nlDirector.flash.classList.add('on');setTimeout(()=>nlDirector.flash.classList.remove('on'),45)}
-function nlScareMoment(){nlDirector.bars.classList.add('on');const old=flickerLights.map(f=>f.base);flickerLights.forEach(f=>f.base*=.22);setTimeout(()=>flickerLights.forEach((f,i)=>f.base=old[i]),650);showObjective('Something is standing where the light cannot reach.',2.8)}
+function nlScareMoment(){nlDirector.bars.classList.add('on');setTimeout(function(){if(warden&&warden.state!=='intro')nlDirector.bars.classList.remove('on')},2700);const old=flickerLights.map(f=>f.base);flickerLights.forEach(f=>f.base*=.22);setTimeout(()=>flickerLights.forEach((f,i)=>f.base=old[i]),650);showObjective('Something is standing where the light cannot reach.',2.8)}
 function nlDirectorUpdate(dt,t){for(const a of nlDirector.arcs){if(a.life<=0)continue;a.life-=dt;const u=Math.max(0,a.life/.18);a.mesh.material.opacity=u*.78;a.mesh.scale.setScalar(1.15-u*.15);if(a.life<=0)a.mesh.visible=false}for(const r of nlDirector.rings){if(r.life<=0)continue;r.life-=dt;const u=1-r.life/r.max;r.mesh.material.opacity=(1-u)*.8;r.mesh.scale.setScalar(.45+u*2.4);if(r.life<=0)r.mesh.visible=false}if(gameState==='playing'){const speed=Math.hypot(player.vel.x,player.vel.z);nlDirector.dustTimer-=dt;if(player.grounded&&speed>.8&&nlDirector.dustTimer<=0){nlDirector.dustTimer=.16;emitBurst(player.pos.x,.035,player.pos.z,3,.55,.46,.34,.65,.38,.25,2.5)}nlDirector.lanternCooldown=Math.max(0,nlDirector.lanternCooldown-dt);nlDirector.lanternPulse=Math.max(0,nlDirector.lanternPulse-dt);if(player.mesh&&player.mesh.lanternLight){const focus=nlDirector.lanternPulse>0;const flick=.1*Math.sin(t*17)+.06*Math.sin(t*31.7+1.7);player.mesh.lanternLight.intensity=(focus?3.0:1.15)+flick*.55;player.mesh.lanternLight.distance=focus?8:5.8;player.mesh.lanternGlow.material.opacity=focus?.88:.48+.06*Math.sin(t*11)}for(const e of enemies){if(e.type!=='skitterling'||e.state==='dead'||e.state==='dormant')continue;const d=Math.hypot(e.pos.x-player.pos.x,e.pos.z-player.pos.z);if(e.mesh.eyeMats)e.mesh.eyeMats.forEach(m=>m.emissiveIntensity=d<5?2.8:1.2);if(d<5&&nlDirector.lanternPulse>0&&e.state==='chase'){e.vel.x*=.88;e.vel.z*=.88}}
 if(nlDirector.roomCandle){
   const cd=Math.hypot(player.pos.x-nlDirector.roomCandle.x,player.pos.z-nlDirector.roomCandle.z);
