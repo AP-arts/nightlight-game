@@ -210,6 +210,19 @@
     .overlay { transition: none; }
   }
 #cinematic-bars{position:fixed;inset:0;pointer-events:none;z-index:6;opacity:0;transition:opacity .35s}#cinematic-bars:before,#cinematic-bars:after{content:"";position:absolute;left:0;right:0;height:7.5vh;background:#030201}#cinematic-bars:before{top:0}#cinematic-bars:after{bottom:0}#cinematic-bars.on{opacity:1}#film-grain{position:fixed;inset:0;pointer-events:none;z-index:7;opacity:.055;mix-blend-mode:screen;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.95' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.32'/%3E%3C/svg%3E")}#film-flash{position:fixed;inset:0;pointer-events:none;z-index:8;background:rgba(255,210,140,0);transition:background .05s}#film-flash.on{background:rgba(255,210,140,.16)}
+
+  #pause-screen { background: radial-gradient(ellipse at center, rgba(7,5,3,.62), rgba(4,3,2,.94)); }
+  #pause-screen .menu-panel { max-width: 380px; }
+  .menu-subtle { color: var(--tallow-dim); font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; margin-top: 16px; }
+  .menu-btn {
+    display:block; width:100%; max-width:240px; margin:12px auto 0; padding:13px 18px;
+    font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:1rem;
+    color:var(--tallow); background:rgba(58,42,28,.55); border:1px solid var(--panel-edge);
+    border-radius:3px; cursor:pointer; transition:background .2s, transform .2s, border-color .2s;
+  }
+  .menu-btn:hover { background:rgba(194,118,47,.18); border-color:var(--ember); transform:translateY(-1px); }
+  .menu-btn:active { transform:translateY(1px); }
+  .menu-btn.primary { background:linear-gradient(135deg,rgba(194,118,47,.85),rgba(125,43,57,.85)); }
 </style>
 </head>
 <body>
@@ -244,6 +257,17 @@
     </div>
     <br>
     <button id="begin-btn" class="wax-btn">Light the Candle</button>
+  </div>
+</div>
+
+<div id="pause-screen" class="overlay hidden">
+  <div class="menu-panel">
+    <h2>Paused</h2>
+    <p class="tagline">The halls wait in silence.</p>
+    <button id="resume-btn" class="menu-btn primary">Resume</button>
+    <button id="restart-btn" class="menu-btn">Restart</button>
+    <button id="pause-menu-btn" class="menu-btn">Main Menu</button>
+    <div class="menu-subtle">Press ESC to resume</div>
   </div>
 </div>
 
@@ -2874,6 +2898,11 @@ function showObjective(text, duration) {
 }
 
 /* ============================== GAME FLOW ============================== */
+const pauseScreen = document.getElementById('pause-screen');
+const resumeBtn = document.getElementById('resume-btn');
+const restartBtn = document.getElementById('restart-btn');
+const pauseMenuBtn = document.getElementById('pause-menu-btn');
+let wasPlayingBeforePause = false;
 const gameoverTextEl = document.getElementById('gameover-text');
 let lastHitBy = null;
 
@@ -2907,11 +2936,50 @@ function triggerGameOver() {
 function enterPlaying() {
   resetGame();
   gameState = 'playing';
+  pauseScreen.classList.add('hidden');
   hud.classList.remove('hidden');
   if (IS_TOUCH) touchControls.classList.remove('hidden');
 }
+function pauseGame() {
+  if (gameState !== 'playing') return;
+  wasPlayingBeforePause = true;
+  gameState = 'paused';
+  hud.classList.add('hidden');
+  touchControls.classList.add('hidden');
+  pauseScreen.classList.remove('hidden');
+  if (document.pointerLockElement === canvas) document.exitPointerLock();
+}
+function resumeGame() {
+  if (gameState !== 'paused') return;
+  gameState = 'playing';
+  pauseScreen.classList.add('hidden');
+  hud.classList.remove('hidden');
+  if (IS_TOUCH) touchControls.classList.remove('hidden');
+  wasPlayingBeforePause = false;
+}
+function returnToMainMenu() {
+  pauseScreen.classList.add('hidden');
+  hud.classList.add('hidden');
+  touchControls.classList.add('hidden');
+  resetGame();
+  gameState = 'menu';
+  startScreen.classList.remove('hidden');
+  wasPlayingBeforePause = false;
+}
 
 beginBtn.addEventListener('click', function () { initAudio(); startScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
+resumeBtn.addEventListener('click', function () { resumeGame(); requestLook(); });
+restartBtn.addEventListener('click', function () { pauseScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
+pauseMenuBtn.addEventListener('click', function () { returnToMainMenu(); });
+window.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    if (gameState === 'playing') pauseGame();
+    else if (gameState === 'paused') { resumeGame(); requestLook(); }
+    return;
+  }
+});
+
 retryBtn.addEventListener('click', function () { gameoverScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
 playAgainBtn.addEventListener('click', function () { victoryScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
 muteBtn.addEventListener('click', toggleMute);
