@@ -2878,6 +2878,7 @@ if(nlDirector.roomCandle){
     nlDirector.roomCandleLights.forEach(function(l){l.intensity+=(l.userData.target-l.intensity)*Math.min(1,dt*5)});
   }
 }}
+}
 function nlAddStoryProps(){const wood=new THREE.MeshStandardMaterial({color:0x3a2519,roughness:.92}),cloth=new THREE.MeshStandardMaterial({color:0x5d3037,roughness:1}),wax=new THREE.MeshStandardMaterial({color:0xd8c7a8,roughness:.9});function box(x,y,z,sx,sy,sz,mat){const o=new THREE.Mesh(new THREE.BoxGeometry(sx,sy,sz),mat);o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;scene.add(o);return o}box(-7.2,.65,-8,1,1.3,.95,wood);box(-7.2,1.35,-8,1,.18,.95,wood);box(-7.2,.24,-7.15,.28,.45,.18,cloth);for(let i=0;i<3;i++){const c=box(-5.8+i*.42,.12,-7.05,.1,.24,.1,wax);const f=new THREE.PointLight(0xffb45e,.42,2.2,2);f.position.set(c.position.x,.34,c.position.z);scene.add(f)}
 // The central room candle is the player's first major light objective.
 const pedestal=box(-4.55,.38,-7.05,.62,.76,.62,wood);
