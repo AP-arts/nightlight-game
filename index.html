@@ -1217,8 +1217,8 @@ function createPlayerMesh() {
 /* ---------- Skitterling: pale, hunched, many-limbed scuttler with too-large eyes ---------- */
 function createSkitterlingMesh() {
   const S = makeMatSet();
-  const skin = S.std(0xa9a58f, { rough: 0.6 });
-  const skin2 = S.std(0x8d8976, { rough: 0.7 });
+  const skin = S.std(0x050505, { rough: 0.85, fill: 0 });
+  const skin2 = S.std(0x030303, { rough: 0.9, fill: 0 });
   const mouthMat = S.std(0x1a1214, { fill: 0 });
   const clawMat = S.std(0x5f584a);
   const eyeGlow = S.glow(0xfff0b0); // Eyes remain as the creature's faint silhouette cue in darkness.
@@ -1275,16 +1275,16 @@ function createSkitterlingMesh() {
 /* ---------- The Warden: tall, dark-coated, blank porcelain mask, iron maul ---------- */
 function createWardenMesh() {
   const S = makeMatSet();
-  const coat = S.std(0x8d7f9a, { rough: 0.9, side: THREE.DoubleSide });
-  const trouser = S.std(0x5c5468);
-  const boot = S.std(0x3a3440, { rough: 0.6 });
-  const leather = S.std(0x4a3a2c);
-  const maskMat = S.std(0xe8e0d4, { rough: 0.35 });
-  const capMat = S.std(0x554a60, { rough: 0.8 });
+  const coat = S.std(0x050505, { rough: 0.95, side: THREE.DoubleSide, fill: 0 });
+  const trouser = S.std(0x030303, { rough: 0.95, fill: 0 });
+  const boot = S.std(0x020202, { rough: 0.9, fill: 0 });
+  const leather = S.std(0x030303, { rough: 0.95, fill: 0 });
+  const maskMat = S.std(0x060606, { rough: 0.75, fill: 0 });
+  const capMat = S.std(0x040404, { rough: 0.9, fill: 0 });
   const brass = S.std(0xb08a44, { rough: 0.4, metal: 0.4 });
   const iron = S.std(0x757984, { rough: 0.5, metal: 0.45, fill: 0.16 });
   const wood = S.std(0x6a4a30);
-  const handMat = S.std(0xcabba8);
+  const handMat = S.std(0x050505, { rough: 0.9, fill: 0 });
   const slitMat = S.glow(0xff8a44); // Mask slits stay faintly visible even when the body falls into shadow.
 
   const group = new THREE.Group();
