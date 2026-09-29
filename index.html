@@ -1286,11 +1286,12 @@ buildOutdoorChapter();
 
 function startOutdoorChapter(){
   outdoorMode=true;outdoorTimer=0;
+  victoryTriggered=false;
   if(outdoorGroup) outdoorGroup.visible=true;
 
-  // Hard scene transition: hide the entire indoor level, not just its enemies.
-  // Wick remains in the scene because he is the player for both chapters.
-  nlIndoorSceneObjects.forEach(function(o){o.visible=false;});
+  // Hard scene transition: unload the indoor chapter from the render scene.
+  // Global FX and Wick stay alive; indoor geometry/lights are removed.
+  nlUnloadIndoorLevel();
   player.autoWalk=false;player.state='free';player.stateTime=0;player.vel.set(0,0,0);player.pos.set(0,0,-17);player.facing=Math.PI;
   player.mesh.group.visible=true;
   player.mesh.group.position.copy(player.pos);player.mesh.group.rotation.y=player.facing;
@@ -1748,6 +1749,12 @@ function moveAxis(ent, axis, delta) {
 }
 
 function moveWithCollision(ent, dx, dz) {
+  // Outdoor terrain has no indoor wall colliders.
+  if (outdoorMode) {
+    ent.pos.x += dx;
+    ent.pos.z += dz;
+    return false;
+  }
   const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.25));   // sub-step: thin colliders can't be skipped
   const sx = dx / n, sz = dz / n;
   let hx = false, hz = false;
@@ -1763,6 +1770,13 @@ function moveWithCollision(ent, dx, dz) {
 function stepVertical(ent, dt) {
   const wasGrounded = ent.grounded;
   ent.vel.y = Math.max(ent.vel.y - CFG.gravity * dt, -38);
+  if (outdoorMode) {
+    ent.pos.y = 0;
+    ent.vel.y = 0;
+    ent.grounded = true;
+    ent.landed = 0;
+    return;
+  }
   const prevY = ent.pos.y;
   let newY = prevY + ent.vel.y * dt;
   ent.landed = 0;
@@ -3165,7 +3179,7 @@ let lastHitBy = null;
 function resetGame() {
   outdoorMode=false; outdoorTimer=0;
   if(outdoorGroup) outdoorGroup.visible=false;
-  nlIndoorSceneObjects.forEach(function(o){o.visible=true;});
+  nlRestoreIndoorLevel();
   if(outdoorAmbient) outdoorAmbient.intensity=0;
   if(outdoorHemi) outdoorHemi.intensity=0;
   if(outdoorMoon) outdoorMoon.intensity=0;
@@ -3200,6 +3214,7 @@ function triggerGameOver() {
 
 function enterPlaying() {
   resetGame();
+  victoryTriggered=false;
   gameState = 'playing';
   pauseScreen.classList.add('hidden');
   hud.classList.remove('hidden');
@@ -3330,6 +3345,26 @@ nlAddStoryProps();
 nlIndoorSceneObjects = scene.children.filter(function(o){
   return o !== outdoorGroup && o !== player.mesh.group;
 });
+
+const nlPersistentSceneObjects = new Set(
+  [particlePts].concat(nlDirector.arcs.map(function(a){return a.mesh;}), nlDirector.rings.map(function(r){return r.mesh;}))
+);
+
+function nlUnloadIndoorLevel(){
+  nlIndoorSceneObjects.forEach(function(o){
+    if(nlPersistentSceneObjects.has(o)) return;
+    scene.remove(o);
+    o.visible=false;
+  });
+}
+
+function nlRestoreIndoorLevel(){
+  nlIndoorSceneObjects.forEach(function(o){
+    if(nlPersistentSceneObjects.has(o)) return;
+    if(scene.children.indexOf(o)===-1) scene.add(o);
+    o.visible=true;
+  });
+}
 
 /* ============================== MAIN LOOP ============================== */
 function animate(now) {
