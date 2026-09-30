@@ -889,35 +889,7 @@ function buildLevel() {
   scene.add(glass);
   cameraBlockers.push(glass);
 
-  // faint volumetric shaft of moonlight from the window to the floor (additive, no depth write)
-  (function () {
-    const dirv = new THREE.Vector3(17, -13, 4).normalize();
-    const xw = -(HW + W / 2) + 0.25;
-    const corners = [[1.0, -6], [4.2, -6], [4.2, 0], [1.0, 0]];
-    const verts = [], cols = [];
-    corners.forEach(function (c) {
-      verts.push(xw, c[0], c[1]);
-      cols.push(0.10, 0.14, 0.24);
-    });
-    corners.forEach(function (c) {
-      const k = c[0] / -dirv.y;
-      verts.push(xw + dirv.x * k, 0.02, c[1] + dirv.z * k);
-      cols.push(0.02, 0.03, 0.05);
-    });
-    const idx = [0, 1, 5, 0, 5, 4, 1, 2, 6, 1, 6, 5, 2, 3, 7, 2, 7, 6, 3, 0, 4, 3, 4, 7];
-    const bg = new THREE.BufferGeometry();
-    bg.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-    bg.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
-    bg.setIndex(idx);
-    const beam = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({
-      vertexColors: true, transparent: true, blending: THREE.AdditiveBlending,
-      depthWrite: false, side: THREE.DoubleSide, fog: false,
-    }));
-    beam.frustumCulled = false;
-    scene.add(beam);
-  })();
-
-  // window: bars cast a cross of shadow into the moonbeam; sky and moon sit outside
+  // Moonlight is provided by the directional light; no visible fake shaft mesh.\n\n  // window: bars cast a cross of shadow into the moonbeam; sky and moon sit outside
   const mFrame = new THREE.MeshStandardMaterial({ color: 0x3a2b20, roughness: 0.8 });
   const fo = { collide: false, blockCam: false };
   addSolid(wx, 2.6, -3, 0.12, 3.2, 0.12, mFrame, fo);
@@ -1408,10 +1380,10 @@ function buildOutdoorChapter(){
   beaconPivot.position.set(0,19.2,0);
 
   const sweepTarget=new THREE.Object3D();
-  sweepTarget.position.set(0,0,-100);
+  sweepTarget.position.set(0,0,-140);
   beaconPivot.add(sweepTarget);
 
-  const sweepLight=new THREE.SpotLight(0xffd58a,14,0,Math.PI/9,0.48,1.2);
+  const sweepLight=new THREE.SpotLight(0xffd58a,18,0,Math.PI/5,0.42,1.1);
   sweepLight.position.set(0,0,0);
   sweepLight.target=sweepTarget;
   sweepLight.castShadow=true;
