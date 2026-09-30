@@ -1434,11 +1434,11 @@ function buildOutdoorChapter(){
   glassRoom.position.y=18.0;lighthouse.add(glassRoom);
   const lanternTop=new THREE.Mesh(new THREE.CylinderGeometry(2.15,2.15,.25,12),whiteMat);
   lanternTop.position.y=19.12;lighthouse.add(lanternTop);
-  const roof=new THREE.Mesh(
+  const lighthouseRoof=new THREE.Mesh(
     new THREE.ConeGeometry(2.55,1.35,12),
     redMat
   );
-  roof.position.y=20.0;lighthouse.add(roof);
+  lighthouseRoof.position.y=20.0;lighthouse.add(lighthouseRoof);
 
   const beaconMat=new THREE.MeshStandardMaterial({
     color:0xf0d28a,roughness:.35,metalness:.05
