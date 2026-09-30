@@ -557,8 +557,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
 // Polished rendering pass: restrained bloom on practical lights and the lighthouse.
-let nlComposer = null;
-let nlBloom = null;
+var nlComposer = null;
+var nlBloom = null;
 function nlInitPostFX() {
   if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass) return;
   nlComposer = new THREE.EffectComposer(renderer);
