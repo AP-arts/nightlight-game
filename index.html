@@ -527,6 +527,10 @@ let audioCtx = null, masterGain = null, muted = false;
 let wardenSpawned = false, victoryTriggered = false, doorOpen = false;
 let outdoorMode = false, outdoorGroup = null, rainPoints = null, rainBase = null, lighthouse = null, outdoorTimer = 0;
 let outdoorAmbient = null, outdoorHemi = null, outdoorMoon = null;
+let outdoorMazeGroup = null;
+let outdoorMazeColliders = [];
+let outdoorMazeSpawns = [];
+let outdoorMazeHintShown = false;
 let nlIndoorSceneObjects = [];
 let objectiveFadeTimer = 0;
 
@@ -1232,6 +1236,89 @@ function createLizardEnemy(spawn) {
   e.mesh.group.visible=true; enemies.push(e); return e;
 }
 
+function createMazeSpiderEnemy(spawn) {
+  const mesh=createSkitterlingMesh();
+  scene.add(mesh.group);
+  const def={hp:34,speed:4.35,accel:17,radius:.24,height:.62,dmg:14,atkRange:1.05,atkAngleCos:.35,
+    telegraph:.2,active:.12,recover:.28,cooldown:.9,staggerTime:.3,staggerEvery:1,reach:.75,knock:5.5};
+  const e={kind:'enemy',type:'skitterling',name:'Maze Spider',mesh,def,spawn:spawn.clone(),pos:spawn.clone(),vel:new THREE.Vector3(),
+    radius:def.radius,height:def.height,facing:Math.random()*Math.PI*2,hp:def.hp,maxHp:def.hp,active:true,grounded:true,
+    state:'patrol',stateTime:0,cooldown:randRange(.3,1.1),flash:0,hitCount:0,alerted:false,alertDelay:-1,
+    canSee:false,perceiveTimer:.2,seeTimer:0,patrolTarget:new THREE.Vector3(),patrolWait:0,hasPatrol:false,
+    lastPos:spawn.clone(),stuckTimer:0,stuckClock:0,sidestep:0,sideDir:1,attackHitDone:false,impactDone:false,
+    introTimer:0,deadTimer:0,walkPhase:0,stepAccum:0,wobble:Math.random()*6.28,
+    mazeSpider:true};
+  e.mesh.group.visible=true;
+  enemies.push(e);
+  return e;
+}
+
+function updateMazeSpider(e,dt) {
+  if(e.state==='dead'){
+    e.stateTime+=dt;e.deadTimer+=dt;
+    e.vel.x*=Math.exp(-5*dt);e.vel.z*=Math.exp(-5*dt);
+    moveWithCollision(e,e.vel.x*dt,e.vel.z*dt);
+    e.mesh.group.position.copy(e.pos);
+    return;
+  }
+  e.stateTime+=dt;e.cooldown=Math.max(0,e.cooldown-dt);e.flash=Math.max(0,e.flash-dt);
+  const dx=player.pos.x-e.pos.x,dz=player.pos.z-e.pos.z,d=Math.hypot(dx,dz);
+
+  if(d<7.8 || (d<3.2 && player.noise>0)) e.alerted=true;
+
+  let tx=0,tz=0,moving=false;
+  if(e.alerted && d<9.5){
+    const face=Math.atan2(dx,dz);
+    let ang=face;
+    if(e.sidestep>0){e.sidestep-=dt;ang+=e.sideDir*.95;}
+    tx=Math.sin(ang)*e.def.speed;
+    tz=Math.cos(ang)*e.def.speed;
+    moving=true;
+    e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-12*dt));
+    if(d<e.def.atkRange && e.cooldown<=0 && Math.abs(shortestAngleDelta(e.facing,face))<.65){
+      e.state='windup';e.stateTime=0;e.attackHitDone=false;e.cooldown=e.def.cooldown;
+    }
+  } else if(e.state==='windup'){
+    const face=Math.atan2(dx,dz);
+    if(e.stateTime<.12) e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-14*dt));
+    if(e.stateTime>=e.def.telegraph){e.state='strike';e.stateTime=0;}
+  } else if(e.state==='strike'){
+    if(!e.attackHitDone && e.stateTime>=.035){
+      e.attackHitDone=true;
+      if(d<e.def.atkRange+.12) dealDamageToPlayer(e.def.dmg,e);
+    }
+    if(e.stateTime>=e.def.active){e.state='recover';e.stateTime=0;}
+  } else if(e.state==='recover'){
+    if(e.stateTime>=e.def.recover){e.state='patrol';e.stateTime=0;}
+  } else {
+    if(!e.hasPatrol || Math.hypot(e.patrolTarget.x-e.pos.x,e.patrolTarget.z-e.pos.z)<.45){
+      const idx=Math.floor(Math.random()*7);
+      const s=outdoorMazeSpawns[idx]||e.spawn;
+      e.patrolTarget.set(s.x+randRange(-1.1,1.1),0,s.z+randRange(-1.1,1.1));
+      e.hasPatrol=true;
+    }
+    const px=e.patrolTarget.x-e.pos.x,pz=e.patrolTarget.z-e.pos.z,pd=Math.hypot(px,pz)||1;
+    moveToward2D(e.vel,px/pd*e.def.speed*.55,pz/pd*e.def.speed*.55,7*dt);
+    if(pd>.4){
+      moving=true;
+      e.facing+=shortestAngleDelta(e.facing,Math.atan2(px,pz))*(1-Math.exp(-9*dt));
+    }
+  }
+
+  if(e.state==='windup'||e.state==='recover') moveToward2D(e.vel,0,0,e.def.accel*2*dt);
+  else if(e.state==='strike'){e.vel.x*=Math.exp(-7*dt);e.vel.z*=Math.exp(-7*dt);}
+  else if(e.state==='patrol'||e.state==='chase') moveToward2D(e.vel,tx,tz,e.def.accel*dt*(moving?1:1.7));
+
+  const hit=moveWithCollision(e,e.vel.x*dt,e.vel.z*dt);
+  if(hit){
+    e.sidestep=.55;e.sideDir=Math.random()<.5?-1:1;
+    e.hasPatrol=false;
+  }
+  e.pos.x=clamp(e.pos.x,-mazeHalfW+.5,mazeHalfW-.5);
+  e.pos.z=clamp(e.pos.z,mazeSouthZ-mazeCell*mazeRows+.5,mazeSouthZ-.5);
+  e.mesh.group.position.copy(e.pos);e.mesh.group.rotation.y=e.facing;
+}
+
 function updateLizard(e,dt) {
   if(e.state==='dead'){
     e.stateTime+=dt; e.deadTimer+=dt; e.vel.x*=Math.exp(-5*dt); e.vel.z*=Math.exp(-5*dt);
@@ -1268,7 +1355,8 @@ function updateLizard(e,dt) {
       if(Math.hypot(e.vel.x,e.vel.z)>.2)e.facing+=shortestAngleDelta(e.facing,Math.atan2(e.vel.x,e.vel.z))*(1-Math.exp(-7*dt));
     }
   }
-  e.pos.x+=e.vel.x*dt;e.pos.z+=e.vel.z*dt;
+  const mazeHit=moveWithCollision(e,e.vel.x*dt,e.vel.z*dt);
+  if(mazeHit){ e.sidestep=.5; e.sideDir=Math.random()<.5?-1:1; }
   e.vel.x*=Math.exp(-3.5*dt);e.vel.z*=Math.exp(-3.5*dt);
   e.pos.x=clamp(e.pos.x,-34,34);e.pos.z=clamp(e.pos.z,-174,-14.2);
   e.mesh.group.position.copy(e.pos);e.mesh.group.rotation.y=e.facing;
@@ -1567,6 +1655,127 @@ function buildOutdoorChapter(){
     stone.castShadow=true;stone.receiveShadow=true;
     outdoorGroup.add(stone);
   }
+  // Lighthouse maze: a real navigable labyrinth with a guaranteed entrance and exit.
+  // The walls are built as organic timber/brush barricades and backed by gameplay colliders.
+  outdoorMazeGroup=new THREE.Group();
+  outdoorMazeGroup.name='Lighthouse Maze';
+  outdoorMazeColliders.length=0;
+  outdoorMazeSpawns.length=0;
+  outdoorMazeHintShown=false;
+  const mazeCols=9, mazeRows=8, mazeCell=4.2, mazeHalfW=(mazeCols*mazeCell)/2;
+  const mazeSouthZ=-113.0;
+  const mazeWallH=2.65, mazeWallT=.38;
+  const mazeWallMat=new THREE.MeshStandardMaterial({color:0x17130f,roughness:.98});
+  const mazeWallMat2=new THREE.MeshStandardMaterial({color:0x211b14,roughness:1});
+  const mazeTopMat=new THREE.MeshStandardMaterial({color:0x0f120d,roughness:1});
+  const mazeRng=(function(seed){
+    return function(){
+      seed=(seed*1664525+1013904223)>>>0;
+      return seed/4294967296;
+    };
+  })(0x4e494748);
+
+  const maze=[];
+  for(let r=0;r<mazeRows;r++){
+    maze[r]=[];
+    for(let col=0;col<mazeCols;col++) maze[r][col]={n:true,e:true,s:true,w:true,visited:false};
+  }
+  const mazeStack=[{c:Math.floor(mazeCols/2),r:0}];
+  maze[0][Math.floor(mazeCols/2)].visited=true;
+  const dirs=[{dc:0,dr:1,a:'n',b:'s'},{dc:1,dr:0,a:'e',b:'w'},{dc:0,dr:-1,a:'s',b:'n'},{dc:-1,dr:0,a:'w',b:'e'}];
+  while(mazeStack.length){
+    const cur=mazeStack[mazeStack.length-1];
+    const choices=[];
+    for(let q=0;q<dirs.length;q++){
+      const d0=dirs[q],nc=cur.c+d0.dc,nr=cur.r+d0.dr;
+      if(nc>=0&&nc<mazeCols&&nr>=0&&nr<mazeRows&&!maze[nr][nc].visited) choices.push(d0);
+    }
+    if(!choices.length){mazeStack.pop();continue;}
+    const chosen=choices[Math.floor(mazeRng()*choices.length)];
+    const nc=cur.c+chosen.dc,nr=cur.r+chosen.dr;
+    maze[cur.r][cur.c][chosen.a]=false;
+    maze[nr][nc][chosen.b]=false;
+    maze[nr][nc].visited=true;
+    mazeStack.push({c:nc,r:nr});
+  }
+
+  function mazeCellCenter(col,row){
+    return {x:-mazeHalfW+mazeCell*(col+.5),z:mazeSouthZ-mazeCell*(row+.5)};
+  }
+  function addMazeWall(x,z,horizontal){
+    const length=mazeCell+.08;
+    const geom=horizontal
+      ? new THREE.BoxGeometry(length,mazeWallH,mazeWallT)
+      : new THREE.BoxGeometry(mazeWallT,mazeWallH,length);
+    const wall=new THREE.Mesh(geom,Math.random()<.5?mazeWallMat:mazeWallMat2);
+    wall.position.set(x,mazeWallH*.5,z);
+    wall.castShadow=true;wall.receiveShadow=true;
+    outdoorMazeGroup.add(wall);
+
+    // Uneven top growth keeps the labyrinth from looking like a clean blockout.
+    const cap=new THREE.Mesh(
+      horizontal ? new THREE.BoxGeometry(length+.08,.12,.52) : new THREE.BoxGeometry(.52,.12,length+.08),
+      mazeTopMat
+    );
+    cap.position.set(x,mazeWallH+.04,z);
+    cap.rotation.y=(Math.random()-.5)*.06;
+    cap.castShadow=true;
+    outdoorMazeGroup.add(cap);
+
+    outdoorMazeColliders.push({
+      minX:x-(horizontal?length*.5:mazeWallT*.5),
+      maxX:x+(horizontal?length*.5:mazeWallT*.5),
+      minZ:z-(horizontal?mazeWallT*.5:length*.5),
+      maxZ:z+(horizontal?mazeWallT*.5:length*.5),
+      minY:0,maxY:mazeWallH,disabled:false
+    });
+  }
+
+  for(let r=0;r<mazeRows;r++){
+    for(let col=0;col<mazeCols;col++){
+      const cell=maze[r][col];
+      const center=mazeCellCenter(col,r);
+
+      if(col===0 && cell.w) addMazeWall(-mazeHalfW,center.z,false);
+      if(col<mazeCols-1 && cell.e) addMazeWall(-mazeHalfW+mazeCell*(col+1),center.z,false);
+      if(col===mazeCols-1 && cell.e) addMazeWall(mazeHalfW,center.z,false);
+
+      // South entrance is the opening in front of the player.
+      if(r===0){
+        if(col!==Math.floor(mazeCols/2)) addMazeWall(center.x,mazeSouthZ,true);
+      } else if(cell.s) {
+        addMazeWall(center.x,mazeSouthZ-mazeCell*r,true);
+      }
+
+      // North exit is the opening leading directly toward the lighthouse.
+      if(r<mazeRows-1 && cell.n) addMazeWall(center.x,mazeSouthZ-mazeCell*(r+1),true);
+      else if(r===mazeRows-1 && col!==Math.floor(mazeCols/2)) {
+        addMazeWall(center.x,mazeSouthZ-mazeCell*mazeRows,true);
+      }
+    }
+  }
+
+  // Add occasional heavy posts to sell the maze as a neglected forest barricade.
+  for(let i=0;i<34;i++){
+    const col=Math.floor(mazeRng()*mazeCols), row=Math.floor(mazeRng()*mazeRows);
+    const q=mazeCellCenter(col,row);
+    const post=new THREE.Mesh(new THREE.CylinderGeometry(.11,.15,3.0,7),mazeWallMat2);
+    post.position.set(q.x+(mazeRng()-.5)*1.6,1.5,q.z+(mazeRng()-.5)*1.6);
+    post.rotation.z=(mazeRng()-.5)*.18;
+    post.castShadow=true;outdoorMazeGroup.add(post);
+  }
+
+  outdoorMazeGroup.position.y=0;
+  outdoorGroup.add(outdoorMazeGroup);
+
+  // Carefully spaced enemy cells: the maze contains both fast lizards and skittering spiders.
+  [[4,1],[1,3],[7,4],[3,6]].forEach(function(v){
+    const p0=mazeCellCenter(v[0],v[1]); outdoorMazeSpawns.push(new THREE.Vector3(p0.x,0,p0.z));
+  });
+  [[7,1],[2,5],[6,6]].forEach(function(v){
+    const p0=mazeCellCenter(v[0],v[1]); outdoorMazeSpawns.push(new THREE.Vector3(p0.x,0,p0.z));
+  });
+
   // lighthouse
   lighthouse=new THREE.Group();lighthouse.position.set(0,0,-156);
   // Lighthouse landmark: stylized red/white coastal tower inspired by the
@@ -1727,6 +1936,7 @@ function startOutdoorChapter(){
   const transitionZ = player.pos.z;
   outdoorMode=true;outdoorTimer=0;
   victoryTriggered=false;
+  outdoorMazeHintShown=false;
   if(outdoorGroup) outdoorGroup.visible=true;
 
   // Hard scene transition: unload the indoor chapter from the render scene.
@@ -1743,12 +1953,41 @@ function startOutdoorChapter(){
       enemies[i].mesh.group.visible=false; enemies[i].active=false; enemies[i].state='dormant';
     }
   }
-  if(!enemies.some(e=>e.type==='lizard')){
-    createLizardEnemy(new THREE.Vector3(-7,0,-42));
-    createLizardEnemy(new THREE.Vector3(9,0,-72));
-    createLizardEnemy(new THREE.Vector3(-12,0,-108));
+  const desiredLizardSpawns = outdoorMazeSpawns.slice(0,4);
+  let lizardIndex=0;
+  for(let i=0;i<enemies.length;i++){
+    if(enemies[i].type==='lizard'){
+      if(lizardIndex<desiredLizardSpawns.length) enemies[i].spawn.copy(desiredLizardSpawns[lizardIndex]);
+      lizardIndex++;
+    }
   }
-  enemies.forEach(e=>{if(e.type==='lizard'){e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);}});
+  while(lizardIndex<desiredLizardSpawns.length){
+    const ne=createLizardEnemy(desiredLizardSpawns[lizardIndex]);
+    ne.spawn.copy(desiredLizardSpawns[lizardIndex]);
+    lizardIndex++;
+  }
+
+  // Add dedicated spider predators to the maze once, then reset them on each Level 2 entry.
+  const spiderSpawns = outdoorMazeSpawns.slice(4,7);
+  let spiderIndex=0;
+  for(let i=0;i<enemies.length;i++){
+    if(enemies[i].mazeSpider) {
+      if(spiderIndex<spiderSpawns.length) enemies[i].spawn.copy(spiderSpawns[spiderIndex]);
+      spiderIndex++;
+    }
+  }
+  while(spiderIndex<spiderSpawns.length){
+    createMazeSpiderEnemy(spiderSpawns[spiderIndex]);
+    spiderIndex++;
+  }
+
+  enemies.forEach(e=>{
+    if(e.type==='lizard' && lizardIndex>0){
+      e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);
+    } else if(e.mazeSpider){
+      e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);
+    }
+  });
   // Deep wet-forest atmosphere: the distance dissolves into cool fog.
   scene.background.set(0x05090a);
   scene.fog=null;
@@ -1779,8 +2018,9 @@ function updateOutdoor(dt,t){
     const fx=Math.sin(camYaw), fz=Math.cos(camYaw);
     const dx=fx*omz-fz*omx, dz=fz*omz+fx*omx;
     const inv=olen>1?1/olen:1;
-    player.pos.x+=dx*CFG.moveSpeed*dt*inv;
-    player.pos.z+=dz*CFG.moveSpeed*dt*inv;
+    player.vel.x=dx*CFG.moveSpeed*inv;
+    player.vel.z=dz*CFG.moveSpeed*inv;
+    moveWithCollision(player,player.vel.x*dt,player.vel.z*dt);
     player.facing=Math.atan2(dx,dz);
   }
   player.pos.x=clamp(player.pos.x,-34,34);player.pos.z=clamp(player.pos.z,-174,-14.2);
@@ -1808,7 +2048,16 @@ function updateOutdoor(dt,t){
     lighthouse.rotation.y=Math.sin(t*.18)*.12;
     const beacon=lighthouse.children[3]; if(beacon) beacon.material.opacity=.75+.25*Math.sin(t*3.2);
   }
-  for(let i=0;i<enemies.length;i++) if(enemies[i].type==='lizard') updateLizard(enemies[i],dt);
+  for(let i=0;i<enemies.length;i++){
+    if(enemies[i].type==='lizard' && enemies[i].active) updateLizard(enemies[i],dt);
+    else if(enemies[i].mazeSpider && enemies[i].active) updateMazeSpider(enemies[i],dt);
+  }
+
+  if(!outdoorMazeHintShown && player.pos.z < mazeSouthZ+3.5){
+    outdoorMazeHintShown=true;
+    showObjective('The trees hide a maze. Find a way to the lighthouse.',4.5);
+  }
+
   if(Math.hypot(player.pos.x,player.pos.z+156)<7){
     outdoorMode=false;
     gameState='victory';
@@ -2179,10 +2428,10 @@ function overlapXZ(c, x, z, r) {
 }
 
 function collidesAt(x, z, r, feetY, h) {
-  if (outdoorMode) return null;
+  const list = outdoorMode ? outdoorMazeColliders : wallColliders;
   const y0 = feetY + CFG.groundBuffer, y1 = feetY + h;
-  for (let i = 0; i < wallColliders.length; i++) {
-    const c = wallColliders[i];
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
     if (c.disabled || y1 <= c.minY || y0 >= c.maxY) continue;
     if (overlapXZ(c, x, z, r)) return c;
   }
@@ -2206,8 +2455,9 @@ function moveAxis(ent, axis, delta) {
   const r = ent.radius, y0 = ent.pos.y + CFG.groundBuffer, y1 = ent.pos.y + ent.height;
   const orig = ent.pos[axis];
   let p = orig + delta, hit = false;
-  for (let i = 0; i < wallColliders.length; i++) {
-    const c = wallColliders[i];
+  const list = outdoorMode ? outdoorMazeColliders : wallColliders;
+  for (let i = 0; i < list.length; i++) {
+    const c = list[i];
     if (c.disabled || y1 <= c.minY || y0 >= c.maxY) continue;
     const x = axis === 'x' ? p : ent.pos.x;
     const z = axis === 'z' ? p : ent.pos.z;
@@ -2215,7 +2465,7 @@ function moveAxis(ent, axis, delta) {
       hit = true;
       if (axis === 'x') p = delta > 0 ? c.minX - r - 0.0005 : c.maxX + r + 0.0005;
       else p = delta > 0 ? c.minZ - r - 0.0005 : c.maxZ + r + 0.0005;
-      if ((p - orig) * delta < 0) p = orig;   // never pop backwards through something we already overlapped
+      if ((p - orig) * delta < 0) p = orig;
     }
   }
   ent.pos[axis] = p;
@@ -2223,13 +2473,7 @@ function moveAxis(ent, axis, delta) {
 }
 
 function moveWithCollision(ent, dx, dz) {
-  // Outdoor terrain has no indoor wall colliders.
-  if (outdoorMode) {
-    ent.pos.x += dx;
-    ent.pos.z += dz;
-    return false;
-  }
-  const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.25));   // sub-step: thin colliders can't be skipped
+  const n = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dz)) / 0.25));
   const sx = dx / n, sz = dz / n;
   let hx = false, hz = false;
   for (let i = 0; i < n; i++) {
