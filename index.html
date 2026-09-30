@@ -1392,35 +1392,27 @@ function buildOutdoorChapter(){
   sweepLight.shadow.bias=-0.0005;
   beaconPivot.add(sweepLight);
 
-  // Atmospheric beacon path. This is intentionally broad and extremely faint:
-  // the SpotLight does the real illumination, while this gives the beam a visible
-  // presence through the rain/fog instead of looking like a thin line.
+  // Visible atmospheric lighthouse shaft. The SpotLight remains the real light;
+  // this broad translucent volume makes the path readable through rain/fog.
   const beamPath=new THREE.Mesh(
-    new THREE.ConeGeometry(7.5,140,32,1,true),
+    new THREE.ConeGeometry(6.5,120,48,1,true),
     new THREE.MeshBasicMaterial({
-      color:0xffdca0,transparent:true,opacity:.009,
-      blending:THREE.AdditiveBlending,depthWrite:false,
-      side:THREE.DoubleSide,fog:true
+      color:0xffd98f,
+      transparent:true,
+      opacity:.045,
+      blending:THREE.AdditiveBlending,
+      depthWrite:false,
+      depthTest:true,
+      side:THREE.DoubleSide,
+      fog:false
     })
   );
   beamPath.rotation.x=Math.PI/2;
-  beamPath.position.z=-70;
+  beamPath.position.z=-60;
+  beamPath.renderOrder=20;
   beaconPivot.add(beamPath);
 
-  // A second, softer inner shaft keeps the center of the beacon readable.
-  const beamCore=new THREE.Mesh(
-    new THREE.ConeGeometry(2.2,140,24,1,true),
-    new THREE.MeshBasicMaterial({
-      color:0xffe4b0,transparent:true,opacity:.012,
-      blending:THREE.AdditiveBlending,depthWrite:false,
-      side:THREE.DoubleSide,fog:true
-    })
-  );
-  beamCore.rotation.x=Math.PI/2;
-  beamCore.position.z=-70;
-  beaconPivot.add(beamCore);
   lighthouse.userData.beamPath=beamPath;
-  lighthouse.userData.beamCore=beamCore;
 
   lighthouse.add(beaconPivot);
   lighthouse.userData.beaconPivot=beaconPivot;
