@@ -1364,6 +1364,10 @@ function buildOutdoorChapter(){
 buildOutdoorChapter();
 
 function startOutdoorChapter(){
+  // Preserve Wick's actual position at the doorway so Level 2 replaces the
+  // indoor scene in-place instead of snapping the player several meters forward.
+  const transitionX = player.pos.x;
+  const transitionZ = player.pos.z;
   outdoorMode=true;outdoorTimer=0;
   victoryTriggered=false;
   if(outdoorGroup) outdoorGroup.visible=true;
@@ -1371,7 +1375,9 @@ function startOutdoorChapter(){
   // Hard scene transition: unload the indoor chapter from the render scene.
   // Global FX and Wick stay alive; indoor geometry/lights are removed.
   nlUnloadIndoorLevel();
-  player.autoWalk=false;player.state='free';player.stateTime=0;player.vel.set(0,0,0);player.pos.set(0,0,-17);player.facing=Math.PI;
+  player.autoWalk=false;player.state='free';player.stateTime=0;player.vel.set(0,0,0);
+  player.pos.set(clamp(transitionX,-34,34),0,Math.min(transitionZ,-14.0));
+  player.facing=Math.PI;
   player.mesh.group.visible=true;
   player.mesh.group.position.copy(player.pos);player.mesh.group.rotation.y=player.facing;
   camYaw=Math.PI;camPitch=0;camSmoothPos=null;
@@ -1451,7 +1457,7 @@ function updateLevel(dt, t) {
   if (doorOpen && doorAnim < 1) doorAnim = Math.min(1, doorAnim + dt / 1.6);
   if (!doorOpen && doorAnim > 0) doorAnim = 0;
   doorPivot.rotation.y = easeOutCubic(doorAnim) * Math.PI * 0.47;
-  doorSpill.visible = doorAnim > 0.01;
+  doorSpill.visible = !outdoorMode && !victoryTriggered && doorAnim > 0.01;
   doorSpill.material.opacity = doorAnim * 0.85;
   // dust
   const arr = dustPoints.geometry.attributes.position.array;
@@ -2821,6 +2827,8 @@ function spawnWarden() {
 function openDoor() {
   doorOpen = true;
   doorAnim = 0;
+  if (doorGlow) doorGlow.visible = false;
+  if (doorSpill) doorSpill.visible = false;
   sfx('door');
   triggerShake(1.7, 0.05);
   showObjective('The door groans open. Go \u2014 now.', 6.5);
@@ -2831,6 +2839,19 @@ function triggerVictory() {
   victoryTimer = 1.9;
   player.autoWalk = true;
   player.blocking = false;
+
+  // Remove the old bright "outside" cards as soon as Wick crosses the open door.
+  // The actual Level 2 environment is made visible behind the doorway so there
+  // is no white flash while the transition countdown finishes.
+  if (doorGlow) doorGlow.visible = false;
+  if (doorSpill) doorSpill.visible = false;
+  if (outdoorGroup) outdoorGroup.visible = true;
+  scene.background.set(0x05090a);
+  scene.fog = new THREE.FogExp2(0x091014, .024);
+  if (moonLight) moonLight.intensity = 0;
+  if (outdoorAmbient) outdoorAmbient.intensity = .075;
+  if (outdoorHemi) outdoorHemi.intensity = .06;
+  if (outdoorMoon) outdoorMoon.intensity = .16;
   sfx('victory');
 }
 
