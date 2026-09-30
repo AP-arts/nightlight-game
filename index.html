@@ -223,6 +223,24 @@
   .menu-btn:hover { background:rgba(194,118,47,.18); border-color:var(--ember); transform:translateY(-1px); }
   .menu-btn:active { transform:translateY(1px); }
   .menu-btn.primary { background:linear-gradient(135deg,rgba(194,118,47,.85),rgba(125,43,57,.85)); }
+  .test-label {
+    margin-top: 24px; color: var(--tallow-dim); font-size: .72rem;
+    letter-spacing: .16em; text-transform: uppercase; opacity: .72;
+  }
+  .test-buttons {
+    display:flex; gap:10px; justify-content:center; margin-top:10px;
+  }
+  .test-btn {
+    min-width:118px; padding:10px 14px; border-radius:3px; cursor:pointer;
+    font-family:'Fraunces',Georgia,serif; font-weight:700; font-size:.9rem;
+    color:var(--tallow); background:rgba(58,42,28,.45);
+    border:1px solid rgba(235,220,192,.22);
+    transition:background .2s, transform .2s, border-color .2s;
+  }
+  .test-btn:hover {
+    background:rgba(194,118,47,.16); border-color:var(--ember); transform:translateY(-1px);
+  }
+  .test-btn:active { transform:translateY(1px); }
 </style>
 </head>
 <body>
@@ -257,6 +275,11 @@
     </div>
     <br>
     <button id="begin-btn" class="wax-btn">Light the Candle</button>
+    <div class="test-label">Test Mode — Temporary</div>
+    <div class="test-buttons">
+      <button id="level1-btn" class="test-btn">Level 1</button>
+      <button id="level2-btn" class="test-btn">Level 2</button>
+    </div>
   </div>
 </div>
 
@@ -467,6 +490,8 @@ const cdDodge = document.getElementById('cd-dodge');
 const cdAttack = document.getElementById('cd-attack');
 const muteBtn = document.getElementById('mute-btn');
 const beginBtn = document.getElementById('begin-btn');
+const level1Btn = document.getElementById('level1-btn');
+const level2Btn = document.getElementById('level2-btn');
 const retryBtn = document.getElementById('retry-btn');
 const playAgainBtn = document.getElementById('playagain-btn');
 const controlsDesktop = document.getElementById('controls-desktop');
@@ -3356,6 +3381,17 @@ function enterPlaying() {
   hud.classList.remove('hidden');
   if (IS_TOUCH) touchControls.classList.remove('hidden');
 }
+function startLevel2Test() {
+  resetGame();
+  // Temporary test spawn: skip the indoor chapter and enter the forest directly.
+  player.pos.set(0, 0, -17);
+  startOutdoorChapter();
+  gameState = 'playing';
+  pauseScreen.classList.add('hidden');
+  hud.classList.remove('hidden');
+  if (IS_TOUCH) touchControls.classList.remove('hidden');
+}
+
 function pauseGame() {
   if (gameState !== 'playing') return;
   wasPlayingBeforePause = true;
@@ -3384,6 +3420,8 @@ function returnToMainMenu() {
 }
 
 beginBtn.addEventListener('click', function () { initAudio(); startScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
+level1Btn.addEventListener('click', function () { initAudio(); startScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
+level2Btn.addEventListener('click', function () { initAudio(); startScreen.classList.add('hidden'); startLevel2Test(); requestLook(); });
 resumeBtn.addEventListener('click', function () { resumeGame(); requestLook(); });
 restartBtn.addEventListener('click', function () { pauseScreen.classList.add('hidden'); enterPlaying(); requestLook(); });
 pauseMenuBtn.addEventListener('click', function () { returnToMainMenu(); });
