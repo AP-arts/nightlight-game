@@ -1634,9 +1634,7 @@ function buildOutdoorChapter(){
     }
     outdoorGroup.add(tree);
   }
-  // distant low hills / tree silhouettes
-  const hillMat=new THREE.MeshStandardMaterial({color:0x070b08,roughness:1});
-  for(let i=0;i<18;i++){const h=new THREE.Mesh(new THREE.ConeGeometry(3+Math.random()*4,8+Math.random()*10,7),hillMat);h.position.set(-38+i*4.4,4+Math.random()*2,-105-Math.random()*55);outdoorGroup.add(h)}
+  // Removed the old cone-shaped distant hill silhouettes; the forest now reads with trees and vegetation alone.
 
   // Forest floor storytelling details: fallen timber, stones and root fragments.
   const logMat=new THREE.MeshStandardMaterial({color:0x21150d,roughness:.96});
