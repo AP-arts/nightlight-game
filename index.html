@@ -537,7 +537,7 @@ let outdoorMazeHintShown = false;
 let outdoorMazeInteractLatched = false;
 let outdoorMazeNearbyCandle = -1;
 let mazeBoss = null, mazeBossStarted = false, mazeBossDefeated = false;
-let bossCinematicActive=false,bossCinematicTimer=0;
+let bossCinematicActive=false,bossCinematicTimer=0,bossCinePhase='none';
 let mazeCols=9, mazeRows=8, mazeCell=4.2, mazeHalfW=18.9;
 let mazeSouthZ=-113.0, mazeWallH=2.65, mazeWallT=.38;
 let nlIndoorSceneObjects = [];
@@ -1425,119 +1425,261 @@ function createMazeBossMesh(){
 function createMazeBoss(spawn){
   const mesh=createMazeBossMesh();scene.add(mesh.group);
   const def={hp:300,speed:2.15,runSpeed:4.05,accel:7.5,radius:.66,height:3.18,dmg:40,atkRange:2.72,atkAngleCos:.25,reach:2.8,knock:2.4,telegraph:.68,active:.36,recover:.58,cooldown:1.12,staggerTime:.36,staggerEvery:3};
-  const e={kind:'enemy',type:'mazeBoss',name:'The Mire Warden',def,mesh,spawn:spawn.clone(),pos:spawn.clone(),vel:new THREE.Vector3(),radius:def.radius,height:def.height,facing:Math.PI,hp:def.hp,maxHp:def.hp,active:false,grounded:true,landed:0,state:'dormant',stateTime:0,cooldown:def.cooldown,flash:0,hitCount:0,alerted:false,alertDelay:-1,canSee:false,perceiveTimer:.2,seeTimer:0,patrolTarget:new THREE.Vector3(),patrolWait:0,hasPatrol:false,lastPos:spawn.clone(),stuckTimer:0,stuckClock:0,sidestep:0,sideDir:1,attackHitDone:false,impactDone:false,introTimer:2.1,deadTimer:0,walkPhase:0,stepAccum:0,wobble:Math.random()*6.28,mazeBoss:true,attackSide:1,leapTimer:10,leapTarget:new THREE.Vector3(),leapDir:new THREE.Vector3(),runBlend:0};
+  const e={kind:'enemy',type:'mazeBoss',name:'The Mire Warden',def,mesh,spawn:spawn.clone(),pos:spawn.clone(),vel:new THREE.Vector3(),radius:def.radius,height:def.height,facing:Math.PI,hp:def.hp,maxHp:def.hp,active:false,grounded:true,landed:0,state:'dormant',stateTime:0,cooldown:def.cooldown,flash:0,hitCount:0,alerted:false,alertDelay:-1,canSee:false,perceiveTimer:.2,seeTimer:0,patrolTarget:new THREE.Vector3(),patrolWait:0,hasPatrol:false,lastPos:spawn.clone(),stuckTimer:0,stuckClock:0,sidestep:0,sideDir:1,attackHitDone:false,impactDone:false,introTimer:2.1,deadTimer:0,walkPhase:0,stepAccum:0,wobble:Math.random()*6.28,mazeBoss:true,attackSide:1,leapTimer:10,leapTarget:new THREE.Vector3(),leapDir:new THREE.Vector3(),introStart:new THREE.Vector3(),introLand:new THREE.Vector3(),runBlend:0};
   mesh.group.visible=false;enemies.push(e);return e;
 }
 
 function startMazeBossFight(){
   if(mazeBossStarted||mazeBossDefeated)return;
-  if(!mazeBoss)mazeBoss=createMazeBoss(new THREE.Vector3(0,0,-151));
+  if(!mazeBoss)mazeBoss=createMazeBoss(new THREE.Vector3(-6.8,0,-149.4));
 
-  mazeBossStarted=true;mazeBossDefeated=false;mazeBoss.active=true;
-  mazeBoss.state='introDrop';mazeBoss.stateTime=0;mazeBoss.hp=mazeBoss.maxHp;mazeBoss.hitCount=0;
-  mazeBoss.vel.set(0,0,0);mazeBoss.vel.y=-1.2;mazeBoss.pos.set(0,20.0,-155.2);
-  mazeBoss.facing=Math.atan2(player.pos.x-mazeBoss.pos.x,player.pos.z-mazeBoss.pos.z);
-  mazeBoss.leapTimer=10;mazeBoss.mesh.group.position.copy(mazeBoss.pos);mazeBoss.mesh.group.rotation.y=mazeBoss.facing;mazeBoss.mesh.group.visible=true;
-  bossCinematicActive=true;bossCinematicTimer=0;
-  nlDirector.bars.classList.add('on');camera.fov=50;camera.updateProjectionMatrix();
-  hudTarget=mazeBoss;hudTargetTimer=9999;
-  showObjective('Something moves above the lighthouse...',3.2);
+  mazeBossStarted=true;
+  mazeBossDefeated=false;
+  mazeBoss.active=true;
+  mazeBoss.state='introDrop';
+  mazeBoss.stateTime=0;
+  mazeBoss.hp=mazeBoss.maxHp;
+  mazeBoss.hitCount=0;
+
+  // Start on the lighthouse roof, then make a deliberate diagonal leap to the
+  // player's left instead of dropping through the tower interior.
+  mazeBoss.introStart.set(0,19.0,-156.7);
+  mazeBoss.introLand.set(-6.8,0,-149.4);
+  mazeBoss.pos.copy(mazeBoss.introStart);
+  const jumpTime=1.08;
+  mazeBoss.vel.set(
+    (mazeBoss.introLand.x-mazeBoss.introStart.x)/jumpTime,
+    (-mazeBoss.introStart.y-0.5*26*jumpTime*jumpTime)/jumpTime,
+    (mazeBoss.introLand.z-mazeBoss.introStart.z)/jumpTime
+  );
+  mazeBoss.facing=Math.atan2(mazeBoss.introLand.x-mazeBoss.pos.x,mazeBoss.introLand.z-mazeBoss.pos.z);
+  mazeBoss.leapTimer=10;
+  mazeBoss.leapTarget.copy(mazeBoss.introLand);
+  mazeBoss.mesh.group.position.copy(mazeBoss.pos);
+  mazeBoss.mesh.group.rotation.y=mazeBoss.facing;
+  mazeBoss.mesh.group.visible=true;
+
+  bossCinematicActive=true;
+  bossCinematicTimer=0;
+  bossCinePhase='drop';
+  nlDirector.bars.classList.add('on');
+  camera.fov=52;
+  camera.updateProjectionMatrix();
+  hudTarget=mazeBoss;
+  hudTargetTimer=9999;
+  showObjective('Something watches from the lighthouse...',3.2);
   sfx('rumble',1);
 }
 
 function updateMazeBoss(e,dt){
   if(!e||!e.active)return;
-  if(bossCinematicActive)bossCinematicTimer+=dt;
-  e.stateTime+=dt;e.cooldown=Math.max(0,e.cooldown-dt);e.flash=Math.max(0,e.flash-dt);
 
   if(e.state==='dead'){
-    e.deadTimer+=dt;e.vel.x*=Math.exp(-5*dt);e.vel.z*=Math.exp(-5*dt);
-    stepVertical(e,dt);e.mesh.group.position.copy(e.pos);return;
+    e.deadTimer+=dt;
+    e.vel.x*=Math.exp(-5*dt);e.vel.z*=Math.exp(-5*dt);
+    e.mesh.group.position.copy(e.pos);
+    return;
   }
 
-  const dx=player.pos.x-e.pos.x,dz=player.pos.z-e.pos.z,d=Math.hypot(dx,dz),face=Math.atan2(dx,dz);
+  e.stateTime+=dt;
+  e.cooldown=Math.max(0,e.cooldown-dt);
+  e.flash=Math.max(0,e.flash-dt);
+
+  const dx=player.pos.x-e.pos.x;
+  const dz=player.pos.z-e.pos.z;
+  const d=Math.hypot(dx,dz);
+  const face=Math.atan2(dx,dz);
 
   if(e.state==='introDrop'){
-    e.vel.x*=Math.exp(-8*dt);e.vel.z*=Math.exp(-8*dt);
-    stepVertical(e,dt);
+    bossCinePhase='drop';
+    // Ballistic roof-to-left landing. Collision is intentionally skipped during
+    // the cinematic jump so the lighthouse itself cannot catch the boss.
+    e.pos.x+=e.vel.x*dt;
+    e.pos.z+=e.vel.z*dt;
+    e.vel.y-=26*dt;
+    e.pos.y+=e.vel.y*dt;
+    e.facing=Math.atan2(e.introLand.x-e.pos.x,e.introLand.z-e.pos.z);
+
     if(e.pos.y<=0){
-      e.pos.y=0;e.vel.y=0;e.state='introRoar';e.stateTime=0;e.facing=face;
-      sfx('thump',1.25);sfx('roar',1.35);triggerShake(1.1,.22);
-      emitBurst(e.pos.x,.08,e.pos.z,56,1,.56,.30,6.8,.9,2.5,13);
+      e.pos.copy(e.introLand);
+      e.vel.set(0,0,0);
+      e.state='introRoar';
+      e.stateTime=0;
+      bossCinePhase='roar';
+      sfx('thump',1.3);
+      sfx('roar',1.45);
+      triggerShake(1.15,.23);
+      emitBurst(e.pos.x,.08,e.pos.z,62,1,.56,.30,7.2,.95,2.7,14);
     }
   }else if(e.state==='introRoar'){
-    e.vel.x*=Math.exp(-9*dt);e.vel.z*=Math.exp(-9*dt);
+    bossCinePhase='roar';
+    e.vel.set(0,0,0);
     e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-5*dt));
-    if(e.stateTime>=1.9){
-      bossCinematicActive=false;e.state='chase';e.stateTime=0;e.alerted=true;e.leapTimer=10;
-      nlDirector.bars.classList.remove('on');camera.fov=60;camera.updateProjectionMatrix();
+    if(e.stateTime>=1.65){
+      e.state='introFace';
+      e.stateTime=0;
+      bossCinePhase='face';
+      bossCinematicTimer=0;
+    }
+  }else if(e.state==='introFace'){
+    bossCinePhase='face';
+    e.vel.set(0,0,0);
+    e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-5*dt));
+    if(e.stateTime>=1.15){
+      e.state='introDolly';
+      e.stateTime=0;
+      bossCinePhase='dolly';
+      bossCinematicTimer=0;
+    }
+  }else if(e.state==='introDolly'){
+    bossCinePhase='dolly';
+    e.vel.set(0,0,0);
+    if(e.stateTime>=1.55){
+      bossCinematicActive=false;
+      bossCinePhase='none';
+      e.state='chase';
+      e.stateTime=0;
+      e.alerted=true;
+      e.leapTimer=10;
+      nlDirector.bars.classList.remove('on');
+      camera.fov=60;
+      camera.updateProjectionMatrix();
       showObjective('Defeat the Mire Warden.',3.5);
     }
   }else if(e.state==='chase'){
     e.leapTimer-=dt;
+
+    // Every 10 seconds, launch a targeted aerial sword strike.
     if(e.leapTimer<=0){
-      e.state='leapWindup';e.stateTime=0;
-      e.leapTarget.set(clamp(player.pos.x,-16.5,16.5),0,clamp(player.pos.z,-154.5,-145.5));
-      e.attackHitDone=false;e.impactDone=false;
-      sfx('windup',.82);
+      e.state='leapWindup';
+      e.stateTime=0;
+      e.leapTarget.set(
+        clamp(player.pos.x,-16.5,16.5),
+        0,
+        clamp(player.pos.z,-154.0,-146.0)
+      );
+      e.attackHitDone=false;
+      e.impactDone=false;
+      sfx('windup',.9);
     }else{
       e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-6*dt));
-      const running=d>6;
-      const moveSpeed=running?e.def.runSpeed:e.def.speed;
-      e.runBlend=Math.min(1,Math.max(0,e.runBlend+(running?1:-1)*dt*4));
+      const running=d>5.8;
+      e.runBlend+=(running?dt*5:-dt*5);
+      e.runBlend=clamp(e.runBlend,0,1);
+
       if(d<e.def.atkRange&&e.cooldown<=0&&Math.abs(shortestAngleDelta(e.facing,face))<.70){
-        e.state='windup';e.stateTime=0;e.attackHitDone=false;e.impactDone=false;sfx('windup',.9);
+        e.state='windup';
+        e.stateTime=0;
+        e.attackHitDone=false;
+        e.impactDone=false;
+        e.attackSide=Math.random()<.5?-1:1;
+        sfx('windup',.9);
       }else{
-        let ang=face;if(e.sidestep>0){e.sidestep-=dt;ang+=e.sideDir*.65;}
-        const want=d>2.05?moveSpeed:0;
-        moveToward2D(e.vel,Math.sin(ang)*want,Math.cos(ang)*want,e.def.accel*dt*(running?1.18:1));
+        let ang=face;
+        if(e.sidestep>0){e.sidestep-=dt;ang+=e.sideDir*.65;}
+        const want=d>2.05?(e.runBlend>.5?e.def.runSpeed:e.def.speed):0;
+        moveToward2D(e.vel,Math.sin(ang)*want,Math.cos(ang)*want,e.def.accel*dt*(e.runBlend>.5?1.18:1));
       }
     }
   }else if(e.state==='windup'){
-    if(e.stateTime<e.def.telegraph*.60)e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-7*dt));
-    if(e.stateTime>=e.def.telegraph){e.state='strike';e.stateTime=0;e.attackHitDone=false;e.impactDone=false;sfx('swing',1);}
+    e.vel.x*=Math.exp(-8*dt);e.vel.z*=Math.exp(-8*dt);
+    if(e.stateTime<e.def.telegraph*.58)
+      e.facing+=shortestAngleDelta(e.facing,face)*(1-Math.exp(-7*dt));
+    if(e.stateTime>=e.def.telegraph){
+      e.state='strike';
+      e.stateTime=0;
+      e.attackHitDone=false;
+      e.impactDone=false;
+      sfx('swing',1);
+    }
   }else if(e.state==='strike'){
-    if(!e.attackHitDone&&e.stateTime>=.09&&enemyAttackConnects(e)){e.attackHitDone=true;dealDamageToPlayer(e.def.dmg,e);triggerShake(.82,.10);}
-    if(!e.impactDone&&e.stateTime>=.17){e.impactDone=true;emitBurst(e.pos.x+Math.sin(e.facing)*1.5,.09,e.pos.z+Math.cos(e.facing)*1.5,34,.95,.58,.28,5.2,.65,1.9,9);}
-    if(e.stateTime>=e.def.active){e.state='recover';e.stateTime=0;e.cooldown=e.def.cooldown;}
+    if(!e.attackHitDone&&e.stateTime>=.08&&enemyAttackConnects(e)){
+      e.attackHitDone=true;
+      dealDamageToPlayer(e.def.dmg,e);
+      triggerShake(.82,.10);
+    }
+    if(!e.impactDone&&e.stateTime>=.17){
+      e.impactDone=true;
+      emitBurst(e.pos.x+Math.sin(e.facing)*1.5,.09,e.pos.z+Math.cos(e.facing)*1.5,34,.95,.58,.28,5.2,.65,1.9,9);
+    }
+    if(e.stateTime>=e.def.active){
+      e.state='recover';
+      e.stateTime=0;
+      e.cooldown=e.def.cooldown;
+    }
   }else if(e.state==='recover'){
     if(e.stateTime>=e.def.recover){e.state='chase';e.stateTime=0;}
   }else if(e.state==='stagger'){
     if(e.stateTime>=e.def.staggerTime){e.cooldown=.45;e.state='chase';e.stateTime=0;}
   }else if(e.state==='leapWindup'){
-    e.vel.x*=Math.exp(-10*dt);e.vel.z*=Math.exp(-10*dt);
-    const tx=e.leapTarget.x-e.pos.x,tz=e.leapTarget.z-e.pos.z;
-    e.facing+=shortestAngleDelta(e.facing,Math.atan2(tx,tz))*(1-Math.exp(-9*dt));
-    if(e.stateTime>=.62){
-      const lx=e.leapTarget.x-e.pos.x,lz=e.leapTarget.z-e.pos.z,ld=Math.hypot(lx,lz)||1;
+    e.vel.x*=Math.exp(-12*dt);e.vel.z*=Math.exp(-12*dt);
+    e.facing+=shortestAngleDelta(e.facing,Math.atan2(e.leapTarget.x-e.pos.x,e.leapTarget.z-e.pos.z))*(1-Math.exp(-9*dt));
+
+    if(e.stateTime>=.48){
+      const lx=e.leapTarget.x-e.pos.x;
+      const lz=e.leapTarget.z-e.pos.z;
+      const airTime=.98;
+      const ld=Math.hypot(lx,lz)||1;
       e.leapDir.set(lx/ld,0,lz/ld);
-      e.vel.x=e.leapDir.x*10.8;e.vel.z=e.leapDir.z*10.8;e.vel.y=12.6;
-      e.state='leapAir';e.stateTime=0;e.attackHitDone=false;e.impactDone=false;
-      triggerShake(.18,.03);
+      e.vel.x=(lx/airTime);
+      e.vel.z=(lz/airTime);
+      e.vel.y=(26*airTime)/2;
+      e.state='leapAir';
+      e.stateTime=0;
+      e.attackHitDone=false;
+      e.impactDone=false;
+      sfx('swing',.7);
+      triggerShake(.14,.025);
     }
   }else if(e.state==='leapAir'){
-    e.pos.x+=e.vel.x*dt;e.pos.z+=e.vel.z*dt;e.facing=Math.atan2(e.vel.x,e.vel.z);
-    stepVertical(e,dt);
+    e.pos.x+=e.vel.x*dt;
+    e.pos.z+=e.vel.z*dt;
+    e.vel.y-=26*dt;
+    e.pos.y+=e.vel.y*dt;
+    e.facing=Math.atan2(e.leapDir.x,e.leapDir.z);
+
     if(e.pos.y<=0){
-      e.pos.y=0;e.vel.y=0;e.state='leapStrike';e.stateTime=0;e.attackHitDone=false;
-      sfx('thump',1.25);triggerShake(1.0,.19);
-      emitBurst(e.pos.x,.07,e.pos.z,54,1,.56,.30,6.8,.9,2.5,13);
+      e.pos.y=0;e.vel.y=0;
+      e.state='leapStrike';
+      e.stateTime=0;
+      e.attackHitDone=false;
+      sfx('thump',1.3);
+      triggerShake(1.0,.20);
+      emitBurst(e.pos.x,.07,e.pos.z,58,1,.56,.30,7.0,.9,2.6,14);
     }
   }else if(e.state==='leapStrike'){
     if(!e.attackHitDone&&e.stateTime>=.08){
       e.attackHitDone=true;
-      if(Math.hypot(player.pos.x-e.pos.x,player.pos.z-e.pos.z)<3.25)dealDamageToPlayer(e.def.dmg+14,e);
+      const impactDist=Math.hypot(player.pos.x-e.pos.x,player.pos.z-e.pos.z);
+      if(impactDist<3.4)dealDamageToPlayer(e.def.dmg+16,e);
     }
-    if(e.stateTime>=.52){e.leapTimer=10;e.cooldown=.5;e.state='chase';e.stateTime=0;}
+    if(e.stateTime>=.58){
+      e.leapTimer=10;
+      e.cooldown=.55;
+      e.state='chase';
+      e.stateTime=0;
+    }
   }
 
-  if(e.state==='windup'||e.state==='recover'||e.state==='leapWindup'||e.state==='introRoar')moveToward2D(e.vel,0,0,e.def.accel*2*dt);
-  else if(e.state==='strike'||e.state==='leapStrike'){e.vel.x*=Math.exp(-5*dt);e.vel.z*=Math.exp(-5*dt);}
-  if(e.state!=='introDrop'&&e.state!=='leapAir'){const hit=moveWithCollision(e,e.vel.x*dt,e.vel.z*dt);if(hit){e.sidestep=.65;e.sideDir=Math.random()<.5?-1:1;}}
+  if(e.state==='windup'||e.state==='recover'||e.state==='leapWindup')
+    moveToward2D(e.vel,0,0,e.def.accel*2*dt);
+  else if(e.state==='strike'||e.state==='leapStrike'){
+    e.vel.x*=Math.exp(-5*dt);e.vel.z*=Math.exp(-5*dt);
+  }
+
+  if(e.state!=='introDrop'&&e.state!=='leapAir'){
+    const hit=moveWithCollision(e,e.vel.x*dt,e.vel.z*dt);
+    if(hit){e.sidestep=.65;e.sideDir=Math.random()<.5?-1:1;}
+  }
+
   if(e.state!=='introDrop'&&e.state!=='leapAir')stepVertical(e,dt);
-  e.pos.x=clamp(e.pos.x,-18.2,18.2);e.pos.z=clamp(e.pos.z,-155,-145);if(e.pos.y<0)e.pos.y=0;
-  e.mesh.group.position.copy(e.pos);e.mesh.group.rotation.y=e.facing;
+  e.pos.x=clamp(e.pos.x,-18.2,18.2);
+  e.pos.z=clamp(e.pos.z,-155.0,-145.0);
+  if(e.pos.y<0)e.pos.y=0;
+  e.mesh.group.position.copy(e.pos);
+  e.mesh.group.rotation.y=e.facing;
 }
+
 
 function animateMazeBoss(e,dt,t){
   const m=e.mesh;
@@ -2442,6 +2584,7 @@ function startOutdoorChapter(){
   outdoorMazeInteractLatched=false;
   outdoorMazeNearbyCandle=-1;
   mazeBossStarted=false;mazeBossDefeated=false;
+  bossCinematicActive=false;bossCinematicTimer=0;bossCinePhase='none';
   bossCinematicActive=false;bossCinematicTimer=0;
   if(!mazeBoss) mazeBoss=createMazeBoss(new THREE.Vector3(0,0,-151));
   mazeBoss.active=false;mazeBoss.state='dormant';mazeBoss.mesh.group.visible=false;
@@ -2625,8 +2768,8 @@ function updateOutdoor(dt,t){
 
   // Boss trigger is ONLY at the north maze exit, not inside the final maze cells.
   // The exit is the center opening: x roughly -2.1..2.1, just beyond the north wall.
-  const mazeNorthExitZ=-147.05;
-  const mazeNorthExitHalfW=2.05;
+  const mazeNorthExitZ=-148.8;
+  const mazeNorthExitHalfW=2.25;
   if(!mazeBossStarted && !mazeBossDefeated && mazeBoss &&
      player.pos.z < mazeNorthExitZ && Math.abs(player.pos.x) < mazeNorthExitHalfW){
     startMazeBossFight();
@@ -3477,6 +3620,7 @@ function killEnemy(e) {
   e.vel.x*=.3;e.vel.z*=.3;
   if(e.mazeBoss){
     mazeBossDefeated=true;
+    bossCinematicActive=false;bossCinePhase='none';
     e.active=true;
     nlDirector.bars.classList.remove('on');
     camera.fov=60;camera.updateProjectionMatrix();
@@ -3611,6 +3755,11 @@ function startDodge(p) {
 
 function updatePlayer(dt) {
   const p = player;
+  if(outdoorMode && bossCinematicActive){
+    p.bufJump=0;p.bufAttack=0;p.bufDodge=0;
+    p.vel.set(0,0,0);p.blocking=false;p.state='free';p.stateTime=0;
+    return;
+  }
   if (justPressed.jump) p.bufJump = 0.13;
   if (justPressed.attack) p.bufAttack = 0.4;
   if (justPressed.dodge) p.bufDodge = 0.25;
@@ -4647,7 +4796,49 @@ for(let i=0;i<6;i++)nlDirector.arcs.push({mesh:nlArc(),life:0});for(let i=0;i<10
 function nlSlashFX(p){let s=nlDirector.arcs.find(x=>x.life<=0)||nlDirector.arcs[0];s.life=.18;s.mesh.visible=true;s.mesh.position.set(p.pos.x,p.pos.y+.68,p.pos.z);s.mesh.rotation.y=p.facing;s.mesh.material.opacity=.78}
 function nlImpactFX(x,y,z,big){let s=nlDirector.rings.find(x=>x.life<=0)||nlDirector.rings[0];s.life=s.max=.34;s.mesh.visible=true;s.mesh.position.set(x,.035,z);s.mesh.scale.setScalar(.45);s.mesh.material.opacity=big?.85:.65;emitBurst(x,y,z,big?20:8,1,.62,.24,big?5.5:3.5,.5,1.4,5);nlDirector.flash.classList.add('on');setTimeout(()=>nlDirector.flash.classList.remove('on'),45)}
 function nlScareMoment(){nlDirector.bars.classList.add('on');setTimeout(function(){if(warden&&warden.state!=='intro')nlDirector.bars.classList.remove('on')},2700);const old=flickerLights.map(f=>f.base);flickerLights.forEach(f=>f.base*=.22);setTimeout(()=>flickerLights.forEach((f,i)=>f.base=old[i]),650);showObjective('Something is standing where the light cannot reach.',2.8)}
-function nlDirectorUpdate(dt,t){for(const a of nlDirector.arcs){if(a.life<=0)continue;a.life-=dt;const u=Math.max(0,a.life/.18);a.mesh.material.opacity=u*.78;a.mesh.scale.setScalar(1.15-u*.15);if(a.life<=0)a.mesh.visible=false}for(const r of nlDirector.rings){if(r.life<=0)continue;r.life-=dt;const u=1-r.life/r.max;r.mesh.material.opacity=(1-u)*.8;r.mesh.scale.setScalar(.45+u*2.4);if(r.life<=0)r.mesh.visible=false}if(gameState==='playing'){const speed=Math.hypot(player.vel.x,player.vel.z);nlDirector.dustTimer-=dt;if(player.grounded&&speed>.8&&nlDirector.dustTimer<=0){nlDirector.dustTimer=.16;emitBurst(player.pos.x,.035,player.pos.z,3,.55,.46,.34,.65,.38,.25,2.5)}nlDirector.lanternCooldown=Math.max(0,nlDirector.lanternCooldown-dt);nlDirector.lanternPulse=Math.max(0,nlDirector.lanternPulse-dt);if(player.mesh&&player.mesh.lanternLight){const focus=nlDirector.lanternPulse>0;const flick=.1*Math.sin(t*17)+.06*Math.sin(t*31.7+1.7);player.mesh.lanternLight.intensity=(focus?3.0:1.15)+flick*.55;player.mesh.lanternLight.distance=focus?8:5.8;player.mesh.lanternGlow.material.opacity=focus?.88:.48+.06*Math.sin(t*11)}for(const e of enemies){if(e.type!=='skitterling'||e.state==='dead'||e.state==='dormant')continue;const d=Math.hypot(e.pos.x-player.pos.x,e.pos.z-player.pos.z);if(e.mesh.eyeMats)e.mesh.eyeMats.forEach(m=>m.emissiveIntensity=d<5?2.8:1.2);if(d<5&&nlDirector.lanternPulse>0&&e.state==='chase'){e.vel.x*=.88;e.vel.z*=.88}}
+function nlBossCinematicCamera(dt,t){
+  if(!bossCinematicActive||!mazeBoss||!mazeBoss.active)return;
+  const b=mazeBoss,p=player;
+  const focus=new THREE.Vector3();
+  if(bossCinePhase==='drop'){
+    focus.set(b.pos.x,b.pos.y+1.55,b.pos.z);
+    const pos=new THREE.Vector3(p.pos.x+5.8,3.4,p.pos.z+7.5);
+    camera.position.lerp(pos,.14);
+    camera.lookAt(focus);
+    camera.fov=52;
+  }else if(bossCinePhase==='roar'){
+    focus.set(b.pos.x,b.pos.y+1.65,b.pos.z);
+    const pos=new THREE.Vector3(b.pos.x+5.0,2.65,b.pos.z+6.4);
+    camera.position.lerp(pos,.18);
+    camera.lookAt(focus);
+    camera.fov=48;
+  }else if(bossCinePhase==='face'){
+    // Tight monster face shot: camera sits in front of the boss, slightly off axis.
+    const fwdX=Math.sin(b.facing),fwdZ=Math.cos(b.facing);
+    const sideX=Math.cos(b.facing),sideZ=-Math.sin(b.facing);
+    const pos=new THREE.Vector3(
+      b.pos.x+fwdX*1.65+sideX*.48,
+      b.pos.y+2.55,
+      b.pos.z+fwdZ*1.65+sideZ*.48
+    );
+    camera.position.lerp(pos,.22);
+    camera.lookAt(b.pos.x,b.pos.y+2.62,b.pos.z);
+    camera.fov=38;
+  }else if(bossCinePhase==='dolly'){
+    // Dolly zoom on Wick: physical camera move inward while FOV widens.
+    const u=easeInOutCubic(clamp(b.stateTime/1.55,0,1));
+    const dist=6.8+(3.25-6.8)*u;
+    const fov=48+(84-48)*u;
+    const off=new THREE.Vector3(4.7,2.0,4.9).normalize().multiplyScalar(dist);
+    const pos=new THREE.Vector3(p.pos.x+off.x,p.pos.y+1.1+off.y,p.pos.z+off.z);
+    camera.position.lerp(pos,.17);
+    camera.lookAt(p.pos.x,p.pos.y+1.05,p.pos.z);
+    camera.fov=fov;
+  }
+  camera.updateProjectionMatrix();
+}
+
+function nlDirectorUpdate(dt,t){nlBossCinematicCamera(dt,t);for(const a of nlDirector.arcs){if(a.life<=0)continue;a.life-=dt;const u=Math.max(0,a.life/.18);a.mesh.material.opacity=u*.78;a.mesh.scale.setScalar(1.15-u*.15);if(a.life<=0)a.mesh.visible=false}for(const r of nlDirector.rings){if(r.life<=0)continue;r.life-=dt;const u=1-r.life/r.max;r.mesh.material.opacity=(1-u)*.8;r.mesh.scale.setScalar(.45+u*2.4);if(r.life<=0)r.mesh.visible=false}if(gameState==='playing'){const speed=Math.hypot(player.vel.x,player.vel.z);nlDirector.dustTimer-=dt;if(player.grounded&&speed>.8&&nlDirector.dustTimer<=0){nlDirector.dustTimer=.16;emitBurst(player.pos.x,.035,player.pos.z,3,.55,.46,.34,.65,.38,.25,2.5)}nlDirector.lanternCooldown=Math.max(0,nlDirector.lanternCooldown-dt);nlDirector.lanternPulse=Math.max(0,nlDirector.lanternPulse-dt);if(player.mesh&&player.mesh.lanternLight){const focus=nlDirector.lanternPulse>0;const flick=.1*Math.sin(t*17)+.06*Math.sin(t*31.7+1.7);player.mesh.lanternLight.intensity=(focus?3.0:1.15)+flick*.55;player.mesh.lanternLight.distance=focus?8:5.8;player.mesh.lanternGlow.material.opacity=focus?.88:.48+.06*Math.sin(t*11)}for(const e of enemies){if(e.type!=='skitterling'||e.state==='dead'||e.state==='dormant')continue;const d=Math.hypot(e.pos.x-player.pos.x,e.pos.z-player.pos.z);if(e.mesh.eyeMats)e.mesh.eyeMats.forEach(m=>m.emissiveIntensity=d<5?2.8:1.2);if(d<5&&nlDirector.lanternPulse>0&&e.state==='chase'){e.vel.x*=.88;e.vel.z*=.88}}
 if(nlDirector.roomCandle){
   const cd=Math.hypot(player.pos.x-nlDirector.roomCandle.x,player.pos.z-nlDirector.roomCandle.z);
   if(!nlDirector.roomCandleLit && cd<4.5) showObjective('Press R to light the room candle.',.65);
