@@ -531,6 +531,8 @@ let outdoorMazeGroup = null;
 let outdoorMazeColliders = [];
 let outdoorMazeSpawns = [];
 let outdoorMazeHintShown = false;
+let mazeCols=9, mazeRows=8, mazeCell=4.2, mazeHalfW=18.9;
+let mazeSouthZ=-113.0, mazeWallH=2.65, mazeWallT=.38;
 let nlIndoorSceneObjects = [];
 let objectiveFadeTimer = 0;
 
@@ -1664,9 +1666,9 @@ function buildOutdoorChapter(){
   outdoorMazeColliders.length=0;
   outdoorMazeSpawns.length=0;
   outdoorMazeHintShown=false;
-  const mazeCols=9, mazeRows=8, mazeCell=4.2, mazeHalfW=(mazeCols*mazeCell)/2;
-  const mazeSouthZ=-113.0;
-  const mazeWallH=2.65, mazeWallT=.38;
+  mazeCols=9; mazeRows=8; mazeCell=4.2; mazeHalfW=(mazeCols*mazeCell)/2;
+  mazeSouthZ=-113.0;
+  mazeWallH=2.65; mazeWallT=.38;
   const mazeWallMat=new THREE.MeshStandardMaterial({color:0x17130f,roughness:.98});
   const mazeWallMat2=new THREE.MeshStandardMaterial({color:0x211b14,roughness:1});
   const mazeTopMat=new THREE.MeshStandardMaterial({color:0x0f120d,roughness:1});
