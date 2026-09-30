@@ -1383,7 +1383,7 @@ function buildOutdoorChapter(){
   sweepTarget.position.set(0,0,-140);
   beaconPivot.add(sweepTarget);
 
-  const sweepLight=new THREE.SpotLight(0xffd58a,8,0,Math.PI/5,0.42,1.1);
+  const sweepLight=new THREE.SpotLight(0xffa83d,5,0,Math.PI/5,0.42,1.1);
   sweepLight.position.set(0,0,0);
   sweepLight.target=sweepTarget;
   sweepLight.castShadow=true;
@@ -1397,11 +1397,11 @@ function buildOutdoorChapter(){
   const beamPath=new THREE.Mesh(
     new THREE.ConeGeometry(7.0,120,32,1,true),
     new THREE.MeshStandardMaterial({
-      color:0xffd99a,
-      emissive:0xffc878,
-      emissiveIntensity:.18,
+      color:0xffa52f,
+      emissive:0xff8c20,
+      emissiveIntensity:.07,
       transparent:true,
-      opacity:.055,
+      opacity:.018,
       blending:THREE.AdditiveBlending,
       depthWrite:false,
       side:THREE.DoubleSide,
