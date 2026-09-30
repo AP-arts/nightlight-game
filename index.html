@@ -1516,7 +1516,7 @@ function startOutdoorChapter(){
   enemies.forEach(e=>{if(e.type==='lizard'){e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);}});
   // Deep wet-forest atmosphere: the distance dissolves into cool fog.
   scene.background.set(0x05090a);
-  scene.fog=new THREE.FogExp2(0x0b1518,.034);
+  scene.fog=null;
   if(moonLight) moonLight.intensity=0;
   if(outdoorAmbient) outdoorAmbient.intensity=.075;
   if(outdoorHemi) outdoorHemi.intensity=.06;
