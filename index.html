@@ -1441,10 +1441,10 @@ function startMazeBossFight(){
   mazeBoss.hp=mazeBoss.maxHp;
   mazeBoss.hitCount=0;
 
-  // Start on the lighthouse roof, then make a deliberate diagonal leap to the
-  // player's left instead of dropping through the tower interior.
-  mazeBoss.introStart.set(0,19.0,-156.7);
-  mazeBoss.introLand.set(-6.8,0,-149.4);
+  // Start on the left edge of the lighthouse roof so the jump visibly clears
+  // the tower instead of passing through its interior.
+  mazeBoss.introStart.set(-2.65,20.4,-155.7);
+  mazeBoss.introLand.set(-7.2,0,-148.7);
   mazeBoss.pos.copy(mazeBoss.introStart);
   const jumpTime=1.08;
   mazeBoss.vel.set(
@@ -1462,6 +1462,9 @@ function startMazeBossFight(){
   bossCinematicActive=true;
   bossCinematicTimer=0;
   bossCinePhase='drop';
+  shakeTimer=0;
+  shakeMag=0;
+  camSmoothPos=null;
   nlDirector.bars.classList.add('on');
   camera.fov=52;
   camera.updateProjectionMatrix();
@@ -1508,7 +1511,7 @@ function updateMazeBoss(e,dt){
       bossCinePhase='roar';
       sfx('thump',1.3);
       sfx('roar',1.45);
-      triggerShake(1.15,.23);
+      // Keep the cinematic camera locked and stable; impact FX are visual/audio only.
       emitBurst(e.pos.x,.08,e.pos.z,62,1,.56,.30,7.2,.95,2.7,14);
     }
   }else if(e.state==='introRoar'){
@@ -2768,7 +2771,7 @@ function updateOutdoor(dt,t){
 
   // Boss trigger is ONLY at the north maze exit, not inside the final maze cells.
   // The exit is the center opening: x roughly -2.1..2.1, just beyond the north wall.
-  const mazeNorthExitZ=-148.8;
+  const mazeNorthExitZ=-147.15;
   const mazeNorthExitHalfW=2.25;
   if(!mazeBossStarted && !mazeBossDefeated && mazeBoss &&
      player.pos.z < mazeNorthExitZ && Math.abs(player.pos.x) < mazeNorthExitHalfW){
@@ -4258,20 +4261,6 @@ const camRaycaster = new THREE.Raycaster();
 let camSmoothPos = null;
 
 function updateCamera(dt) {
-  if(outdoorMode && bossCinematicActive && mazeBoss){
-    const u=clamp(bossCinematicTimer/3.7,0,1);
-    const bx=mazeBoss.pos.x,by=mazeBoss.pos.y,bz=mazeBoss.pos.z;
-    const shotA=new THREE.Vector3(player.pos.x+5.8,4.0,player.pos.z+8.5);
-    const shotB=new THREE.Vector3(bx+6.8,10.8,bz+9.5);
-    const shotC=new THREE.Vector3(bx+4.6,4.0,bz+7.0);
-    const p=new THREE.Vector3();
-    if(u<.46)p.lerpVectors(shotA,shotB,easeInOutCubic(u/.46));
-    else p.lerpVectors(shotB,shotC,easeInOutCubic((u-.46)/.54));
-    const lookY=u<.46?Math.max(3.5,by+5.4):Math.max(1.7,by+1.2);
-    camera.position.lerp(p,1-Math.exp(-10*dt));
-    camera.lookAt(bx,lookY,bz);
-    return;
-  }
   camPitch = clamp(camPitch, CFG.camPitchMin, CFG.camPitchMax);
 
   _camLook.set(player.pos.x, player.pos.y + CFG.camHeightBase, player.pos.z);
@@ -4798,43 +4787,67 @@ function nlImpactFX(x,y,z,big){let s=nlDirector.rings.find(x=>x.life<=0)||nlDire
 function nlScareMoment(){nlDirector.bars.classList.add('on');setTimeout(function(){if(warden&&warden.state!=='intro')nlDirector.bars.classList.remove('on')},2700);const old=flickerLights.map(f=>f.base);flickerLights.forEach(f=>f.base*=.22);setTimeout(()=>flickerLights.forEach((f,i)=>f.base=old[i]),650);showObjective('Something is standing where the light cannot reach.',2.8)}
 function nlBossCinematicCamera(dt,t){
   if(!bossCinematicActive||!mazeBoss||!mazeBoss.active)return;
+
   const b=mazeBoss,p=player;
-  const focus=new THREE.Vector3();
-  if(bossCinePhase==='drop'){
-    focus.set(b.pos.x,b.pos.y+1.55,b.pos.z);
-    const pos=new THREE.Vector3(p.pos.x+5.8,3.4,p.pos.z+7.5);
-    camera.position.lerp(pos,.14);
-    camera.lookAt(focus);
-    camera.fov=52;
-  }else if(bossCinePhase==='roar'){
-    focus.set(b.pos.x,b.pos.y+1.65,b.pos.z);
-    const pos=new THREE.Vector3(b.pos.x+5.0,2.65,b.pos.z+6.4);
-    camera.position.lerp(pos,.18);
-    camera.lookAt(focus);
-    camera.fov=48;
-  }else if(bossCinePhase==='face'){
-    // Tight monster face shot: camera sits in front of the boss, slightly off axis.
-    const fwdX=Math.sin(b.facing),fwdZ=Math.cos(b.facing);
-    const sideX=Math.cos(b.facing),sideZ=-Math.sin(b.facing);
-    const pos=new THREE.Vector3(
-      b.pos.x+fwdX*1.65+sideX*.48,
-      b.pos.y+2.55,
-      b.pos.z+fwdZ*1.65+sideZ*.48
+  const state=b.state;
+  const u=clamp(b.stateTime/(state==='introDrop'?1.08:state==='introRoar'?1.65:state==='introFace'?1.15:1.55),0,1);
+
+  // The entire boss cutscene is staged in the open apron between the maze exit
+  // and lighthouse. These positions are deliberately outside the maze volume.
+  const CAM_OPEN=new THREE.Vector3(10.8,4.8,-149.2);
+  const CAM_ROAR=new THREE.Vector3(8.8,3.0,-149.0);
+  const CAM_FACE_A=new THREE.Vector3(-4.05,2.62,-147.25);
+  const CAM_FACE_B=new THREE.Vector3(-3.75,2.58,-147.15);
+  const CAM_DOLLY_A=new THREE.Vector3(10.0,2.55,-151.0);
+  const CAM_DOLLY_B=new THREE.Vector3(13.0,2.72,-153.0);
+
+  const look=new THREE.Vector3();
+  const pos=new THREE.Vector3();
+
+  // Never inherit shake from earlier gameplay and never run the normal camera
+  // smoothing during the cutscene.
+  shakeTimer=0;
+  shakeMag=0;
+
+  if(state==='introDrop'){
+    // Wide establishing shot: lighthouse + boss jump.
+    const s=easeInOutCubic(u);
+    pos.lerpVectors(CAM_OPEN,new THREE.Vector3(8.8,5.2,-148.4),s);
+    look.set(
+      b.pos.x*.72,
+      Math.max(5.0,b.pos.y+1.2),
+      b.pos.z
     );
-    camera.position.lerp(pos,.22);
-    camera.lookAt(b.pos.x,b.pos.y+2.62,b.pos.z);
-    camera.fov=38;
-  }else if(bossCinePhase==='dolly'){
-    // Dolly zoom on Wick: physical camera move inward while FOV widens.
-    const u=easeInOutCubic(clamp(b.stateTime/1.55,0,1));
-    const dist=6.8+(3.25-6.8)*u;
-    const fov=48+(84-48)*u;
-    const off=new THREE.Vector3(4.7,2.0,4.9).normalize().multiplyScalar(dist);
-    const pos=new THREE.Vector3(p.pos.x+off.x,p.pos.y+1.1+off.y,p.pos.z+off.z);
-    camera.position.lerp(pos,.17);
-    camera.lookAt(p.pos.x,p.pos.y+1.05,p.pos.z);
-    camera.fov=fov;
+    camera.position.copy(pos);
+    camera.lookAt(look);
+    camera.fov=48;
+  }else if(state==='introRoar'){
+    // Medium locked shot for the landing and roar.
+    pos.copy(CAM_ROAR);
+    look.set(b.pos.x,b.pos.y+1.62,b.pos.z);
+    camera.position.copy(pos);
+    camera.lookAt(look);
+    camera.fov=45;
+  }else if(state==='introFace'){
+    // Close face shot. Camera remains outside the maze and slightly off-axis.
+    const s=easeInOutCubic(u);
+    pos.lerpVectors(CAM_FACE_A,CAM_FACE_B,s);
+    look.set(b.pos.x,b.pos.y+2.68,b.pos.z+.18);
+    camera.position.copy(pos);
+    camera.lookAt(look);
+    camera.fov=34;
+  }else if(state==='introDolly'){
+    // Vertigo-style protagonist shot: camera travels backward/right while
+    // FOV tightens. This is a real dolly zoom, but all positions stay in the
+    // open boss apron rather than entering the maze.
+    const s=easeInOutCubic(u);
+    pos.lerpVectors(CAM_DOLLY_A,CAM_DOLLY_B,s);
+    look.set(p.pos.x,p.pos.y+1.02,p.pos.z);
+    camera.position.copy(pos);
+    camera.lookAt(look);
+    camera.fov=56-24*s;
   }
+
   camera.updateProjectionMatrix();
 }
 
