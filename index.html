@@ -1383,7 +1383,7 @@ function buildOutdoorChapter(){
   sweepTarget.position.set(0,0,-140);
   beaconPivot.add(sweepTarget);
 
-  const sweepLight=new THREE.SpotLight(0xffd58a,18,0,Math.PI/5,0.42,1.1);
+  const sweepLight=new THREE.SpotLight(0xffd58a,8,0,Math.PI/5,0.42,1.1);
   sweepLight.position.set(0,0,0);
   sweepLight.target=sweepTarget;
   sweepLight.castShadow=true;
@@ -1391,6 +1391,21 @@ function buildOutdoorChapter(){
   sweepLight.shadow.mapSize.height=512;
   sweepLight.shadow.bias=-0.0005;
   beaconPivot.add(sweepLight);
+
+  // Subtle volumetric path: a very faint, wide cone makes the real beacon visible in rain/fog
+  // without replacing the actual SpotLight illumination.
+  const beamPath=new THREE.Mesh(
+    new THREE.ConeGeometry(0.8,120,20,1,true),
+    new THREE.MeshBasicMaterial({
+      color:0xffdca0,transparent:true,opacity:.018,
+      blending:THREE.AdditiveBlending,depthWrite:false,
+      side:THREE.DoubleSide,fog:true
+    })
+  );
+  beamPath.rotation.x=Math.PI/2;
+  beamPath.position.z=-60;
+  beaconPivot.add(beamPath);
+  lighthouse.userData.beamPath=beamPath;
 
   lighthouse.add(beaconPivot);
   lighthouse.userData.beaconPivot=beaconPivot;
@@ -1408,7 +1423,7 @@ function buildOutdoorChapter(){
   }
   const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.BufferAttribute(pos,3));
   rainPoints=new THREE.LineSegments(rg,new THREE.LineBasicMaterial({
-    color:0x9fb4bd,transparent:true,opacity:.52,depthWrite:false,fog:true
+    color:0x9fb4bd,transparent:true,opacity:.42,depthWrite:false,fog:true
   }));
   rainPoints.frustumCulled=false;outdoorGroup.add(rainPoints);rainBase=vel;
   rainPoints.userData.dropLen=dropLen;
