@@ -1316,8 +1316,12 @@ function updateMazeSpider(e,dt) {
     e.sidestep=.55;e.sideDir=Math.random()<.5?-1:1;
     e.hasPatrol=false;
   }
-  e.pos.x=clamp(e.pos.x,-mazeHalfW+.5,mazeHalfW-.5);
-  e.pos.z=clamp(e.pos.z,mazeSouthZ-mazeCell*mazeRows+.5,mazeSouthZ-.5);
+  const mazeRuntimeHalfW=18.9;
+  const mazeRuntimeSouth=-113.0;
+  const mazeRuntimeCell=4.2;
+  const mazeRuntimeRows=8;
+  e.pos.x=clamp(e.pos.x,-mazeRuntimeHalfW+.5,mazeRuntimeHalfW-.5);
+  e.pos.z=clamp(e.pos.z,mazeRuntimeSouth-mazeRuntimeCell*mazeRuntimeRows+.5,mazeRuntimeSouth-.5);
   e.mesh.group.position.copy(e.pos);e.mesh.group.rotation.y=e.facing;
 }
 
@@ -2060,7 +2064,8 @@ function updateOutdoor(dt,t){
     else if(enemies[i].mazeSpider && enemies[i].active) updateMazeSpider(enemies[i],dt);
   }
 
-  if(!outdoorMazeHintShown && player.pos.z < mazeSouthZ+3.5){
+  const mazeRuntimeSouth=-113.0;
+  if(!outdoorMazeHintShown && player.pos.z < mazeRuntimeSouth+3.5){
     outdoorMazeHintShown=true;
     showObjective('The trees hide a maze. Find a way to the lighthouse.',4.5);
   }
