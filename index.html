@@ -1367,55 +1367,90 @@ function buildOutdoorChapter(){
   for(let i=0;i<18;i++){const h=new THREE.Mesh(new THREE.ConeGeometry(3+Math.random()*4,8+Math.random()*10,7),hillMat);h.position.set(-38+i*4.4,4+Math.random()*2,-105-Math.random()*55);outdoorGroup.add(h)}
   // lighthouse
   lighthouse=new THREE.Group();lighthouse.position.set(0,0,-156);
-  // The lighthouse is the Level 2 landmark: make it bright red and readable
-  // from the moment the forest loads, even through the heavy fog.
-  const towerMat=new THREE.MeshStandardMaterial({
-    color:0xff1717,
-    emissive:0xff0505,
-    emissiveIntensity:1.35,
-    roughness:.7,
-    metalness:.02,
-    fog:false
+  // Lighthouse landmark: stylized red/white coastal tower inspired by the
+  // supplied reference. No emissive materials on the structure.
+  const redMat=new THREE.MeshStandardMaterial({color:0xb51d1d,roughness:.78,metalness:.02});
+  const redDarkMat=new THREE.MeshStandardMaterial({color:0x7d1212,roughness:.82,metalness:.02});
+  const whiteMat=new THREE.MeshStandardMaterial({color:0xd8d6ce,roughness:.82,metalness:0});
+  const darkWhiteMat=new THREE.MeshStandardMaterial({color:0xb9b7b0,roughness:.86,metalness:0});
+
+  // Tapered stacked body creates the red/white striped lighthouse silhouette.
+  const bands=[
+    {y:1.55,h:3.1,rB:3.15,rT:2.95,m:whiteMat},
+    {y:4.45,h:2.7,rB:2.92,rT:2.78,m:redMat},
+    {y:7.15,h:2.7,rB:2.76,rT:2.62,m:whiteMat},
+    {y:9.85,h:2.7,rB:2.60,rT:2.46,m:redMat},
+    {y:12.55,h:2.7,rB:2.44,rT:2.32,m:whiteMat},
+    {y:15.15,h:2.5,rB:2.31,rT:2.20,m:redMat}
+  ];
+  for(let i=0;i<bands.length;i++){
+    const b=bands[i];
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(b.rT,b.rB,b.h,14),b.m);
+    body.position.y=b.y;
+    body.castShadow=true;body.receiveShadow=true;
+    lighthouse.add(body);
+  }
+
+  // Broad stone foundation.
+  const base=new THREE.Mesh(new THREE.BoxGeometry(7.2,.75,6.6),whiteMat);
+  base.position.y=.38;base.castShadow=true;base.receiveShadow=true;lighthouse.add(base);
+  const baseStep1=new THREE.Mesh(new THREE.BoxGeometry(4.8,.28,1.4),darkWhiteMat);
+  baseStep1.position.set(0,.12,3.55);lighthouse.add(baseStep1);
+  const baseStep2=new THREE.Mesh(new THREE.BoxGeometry(3.8,.22,1.0),whiteMat);
+  baseStep2.position.set(0,.36,3.82);lighthouse.add(baseStep2);
+
+  // Small arched-looking entrance made from a doorway block and curved lintel.
+  const doorMat=new THREE.MeshStandardMaterial({color:0x3a3430,roughness:.95});
+  const door=new THREE.Mesh(new THREE.BoxGeometry(1.05,1.65,.16),doorMat);
+  door.position.set(0,1.25,3.05);lighthouse.add(door);
+  const doorTop=new THREE.Mesh(new THREE.TorusGeometry(.525,.08,6,16,Math.PI),doorMat);
+  doorTop.rotation.x=Math.PI/2;doorTop.position.set(0,2.07,3.05);lighthouse.add(doorTop);
+
+  // Upper balcony platform.
+  const balcony=new THREE.Mesh(new THREE.CylinderGeometry(3.15,3.15,.42,16),whiteMat);
+  balcony.position.y=16.55;balcony.castShadow=true;balcony.receiveShadow=true;lighthouse.add(balcony);
+  const balconyUnder=new THREE.Mesh(new THREE.CylinderGeometry(2.45,2.85,.8,14),darkWhiteMat);
+  balconyUnder.position.y=16.0;lighthouse.add(balconyUnder);
+
+  // Simple external stair run along the tower, like the reference.
+  for(let s=0;s<13;s++){
+    const step=new THREE.Mesh(new THREE.BoxGeometry(.72,.16,1.05),darkWhiteMat);
+    step.position.set(-2.55+(s*.18),.72+s*1.02,2.15-s*.16);
+    step.rotation.y=-.18;
+    step.castShadow=true;lighthouse.add(step);
+  }
+
+  // Lantern room: white columns, dark glass, and a red roof.
+  const glassMat=new THREE.MeshStandardMaterial({color:0x263033,roughness:.45,metalness:.1,transparent:true,opacity:.72});
+  const lanternFloor=new THREE.Mesh(new THREE.CylinderGeometry(2.35,2.35,.22,12),whiteMat);
+  lanternFloor.position.y=16.82;lighthouse.add(lanternFloor);
+  for(let p=0;p<8;p++){
+    const a=p*Math.PI/4;
+    const col=new THREE.Mesh(new THREE.BoxGeometry(.22,2.45,.22),whiteMat);
+    col.position.set(Math.cos(a)*1.75,18.0,Math.sin(a)*1.75);
+    lighthouse.add(col);
+  }
+  const glassRoom=new THREE.Mesh(new THREE.CylinderGeometry(1.92,1.92,2.05,12,1,true),glassMat);
+  glassRoom.position.y=18.0;lighthouse.add(glassRoom);
+  const lanternTop=new THREE.Mesh(new THREE.CylinderGeometry(2.15,2.15,.25,12),whiteMat);
+  lanternTop.position.y=19.12;lighthouse.add(lanternTop);
+  const roof=new THREE.Mesh(
+    new THREE.ConeGeometry(2.55,1.35,12),
+    redMat
+  );
+  roof.position.y=20.0;lighthouse.add(roof);
+
+  const beaconMat=new THREE.MeshStandardMaterial({
+    color:0xf0d28a,roughness:.35,metalness:.05
   });
-  const tower=new THREE.Mesh(new THREE.CylinderGeometry(2.3,3.3,18,12),towerMat);
-  tower.position.y=9;tower.castShadow=tower.receiveShadow=true;lighthouse.add(tower);
+  const beacon=new THREE.Mesh(new THREE.SphereGeometry(.48,16,10),beaconMat);
+  beacon.position.y=18.05;lighthouse.add(beacon);
 
-  const balconyMat=new THREE.MeshStandardMaterial({
-    color:0xd30b0b,
-    emissive:0x550000,
-    emissiveIntensity:.8,
-    roughness:.7,
-    metalness:.1,
-    fog:false
-  });
-  const balcony=new THREE.Mesh(new THREE.CylinderGeometry(3.1,3.1,.32,16),balconyMat);
-  balcony.position.y=18;lighthouse.add(balcony);
-
-  const topMat=new THREE.MeshStandardMaterial({
-    color:0xff2020,
-    emissive:0xff0808,
-    emissiveIntensity:1.15,
-    roughness:.68,
-    fog:false
-  });
-  const top=new THREE.Mesh(new THREE.CylinderGeometry(2.25,2.25,2.2,12),topMat);
-  top.position.y=19.1;lighthouse.add(top);
-
-  const beaconMat=new THREE.MeshBasicMaterial({color:0xff5a2a,toneMapped:false});
-  const beacon=new THREE.Mesh(new THREE.SphereGeometry(.78,16,10),beaconMat);
-  beacon.position.y=19.2;lighthouse.add(beacon);
-
-  // Broad red locator glow so the tower remains visible at long range.
-  const beaconLight=new THREE.PointLight(0xff2418,3.2,90,1.7);
-  beaconLight.position.set(0,19.2,0);
+  // A real low-intensity light makes the landmark readable without emissive paint.
+  const beaconLight=new THREE.PointLight(0xffb04a,1.1,55,2);
+  beaconLight.position.set(0,18.05,0);
   lighthouse.add(beaconLight);
 
-  const locatorGlow=new THREE.Mesh(
-    new THREE.SphereGeometry(1.25,16,10),
-    new THREE.MeshBasicMaterial({color:0xff1818,transparent:true,opacity:.18,depthWrite:false,fog:false})
-  );
-  locatorGlow.position.y=19.2;
-  lighthouse.add(locatorGlow);
   // Real 360-degree lighthouse beacon. No fake mesh beam: the SpotLight
   // itself sweeps the forest and has distance=0, meaning no distance cutoff.
   const beaconPivot=new THREE.Group();
@@ -1440,10 +1475,8 @@ function buildOutdoorChapter(){
     new THREE.ConeGeometry(27,120,32,1,true),
     new THREE.MeshStandardMaterial({
       color:0xffb33a,
-      emissive:0xff8a18,
-      emissiveIntensity:.08,
       transparent:true,
-      opacity:.022,
+      opacity:.014,
       blending:THREE.AdditiveBlending,
       depthWrite:false,
       side:THREE.DoubleSide,
