@@ -1392,26 +1392,26 @@ function buildOutdoorChapter(){
   sweepLight.shadow.bias=-0.0005;
   beaconPivot.add(sweepLight);
 
-  // Visible atmospheric lighthouse shaft. The SpotLight remains the real light;
-  // this broad translucent volume makes the path readable through rain/fog.
+  // Stylized visible lighthouse beam: a broad translucent cone matching the real
+  // SpotLight. Its low opacity/emission gives the beam a soft presence in fog/rain.
   const beamPath=new THREE.Mesh(
-    new THREE.ConeGeometry(6.5,120,48,1,true),
-    new THREE.MeshBasicMaterial({
-      color:0xffd98f,
+    new THREE.ConeGeometry(7.0,120,32,1,true),
+    new THREE.MeshStandardMaterial({
+      color:0xffd99a,
+      emissive:0xffc878,
+      emissiveIntensity:.18,
       transparent:true,
-      opacity:.045,
+      opacity:.055,
       blending:THREE.AdditiveBlending,
       depthWrite:false,
-      depthTest:true,
       side:THREE.DoubleSide,
-      fog:false
+      fog:true
     })
   );
   beamPath.rotation.x=Math.PI/2;
   beamPath.position.z=-60;
   beamPath.renderOrder=20;
   beaconPivot.add(beamPath);
-
   lighthouse.userData.beamPath=beamPath;
 
   lighthouse.add(beaconPivot);
