@@ -1402,45 +1402,45 @@ function buildOutdoorChapter(){
   const beaconMat=new THREE.MeshBasicMaterial({color:0xffd98a,toneMapped:false});
   const beacon=new THREE.Mesh(new THREE.SphereGeometry(.62,12,8),beaconMat);beacon.position.y=19.2;lighthouse.add(beacon);
   const beaconLight=new THREE.PointLight(0xffc56e,4.5,32,2);beaconLight.position.set(0,19.2,0);lighthouse.add(beaconLight);
-  // 360-degree lighthouse sweep: the SpotLight is the real light source, while
-  // the subtle cone is only the visible atmospheric beam.
+  // Real 360-degree lighthouse beacon. No fake mesh beam: the SpotLight
+  // itself sweeps the forest and has distance=0, meaning no distance cutoff.
   const beaconPivot=new THREE.Group();
   beaconPivot.position.set(0,19.2,0);
 
   const sweepTarget=new THREE.Object3D();
-  sweepTarget.position.set(0,0,-42);
+  sweepTarget.position.set(0,0,-100);
   beaconPivot.add(sweepTarget);
 
-  const sweepLight=new THREE.SpotLight(0xffd58a,10,58,Math.PI/10,0.55,1.5);
+  const sweepLight=new THREE.SpotLight(0xffd58a,14,0,Math.PI/9,0.48,1.2);
   sweepLight.position.set(0,0,0);
   sweepLight.target=sweepTarget;
-  sweepLight.castShadow=false;
+  sweepLight.castShadow=true;
+  sweepLight.shadow.mapSize.width=512;
+  sweepLight.shadow.mapSize.height=512;
+  sweepLight.shadow.bias=-0.0005;
   beaconPivot.add(sweepLight);
-
-  const sweepBeam=new THREE.Mesh(
-    new THREE.ConeGeometry(.32,42,16,1,true),
-    new THREE.MeshBasicMaterial({
-      color:0xffd58a,transparent:true,opacity:.035,
-      blending:THREE.AdditiveBlending,depthWrite:false,
-      side:THREE.DoubleSide,fog:false
-    })
-  );
-  sweepBeam.rotation.x=Math.PI/2;
-  sweepBeam.position.z=-21;
-  beaconPivot.add(sweepBeam);
 
   lighthouse.add(beaconPivot);
   lighthouse.userData.beaconPivot=beaconPivot;
   lighthouse.userData.beaconTarget=sweepTarget;
   const cap=new THREE.ConeGeometry(2.5,1.3,12);const roof=new THREE.Mesh(cap,new THREE.MeshStandardMaterial({color:0x151714,roughness:.85}));roof.position.y=20.85;lighthouse.add(roof);
   outdoorGroup.add(lighthouse);
-  // rain point cloud; updated around Wick so the rain feels local and endless.
-  const N=900,pos=new Float32Array(N*3),vel=new Float32Array(N);
-  for(let i=0;i<N;i++){pos[i*3]=randRange(-22,22);pos[i*3+1]=randRange(0,16);pos[i*3+2]=randRange(-22,10);vel[i]=randRange(9,15)}
+  // Heavy rain: elongated line drops instead of square snow-like points.
+  const N=2200,pos=new Float32Array(N*6),vel=new Float32Array(N),dropLen=new Float32Array(N);
+  for(let i=0;i<N;i++){
+    const x=randRange(-28,28), top=randRange(2,18), z=randRange(-26,14);
+    const len=randRange(.65,1.7);
+    pos[i*6]=x;pos[i*6+1]=top;pos[i*6+2]=z;
+    pos[i*6+3]=x;pos[i*6+4]=top-len;pos[i*6+5]=z;
+    vel[i]=randRange(13,22);dropLen[i]=len;
+  }
   const rg=new THREE.BufferGeometry();rg.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  rainPoints=new THREE.Points(rg,new THREE.PointsMaterial({color:0x8da0aa,size:.065,transparent:true,opacity:.38,depthWrite:false,fog:true}));
+  rainPoints=new THREE.LineSegments(rg,new THREE.LineBasicMaterial({
+    color:0x9fb4bd,transparent:true,opacity:.52,depthWrite:false,fog:true
+  }));
   rainPoints.frustumCulled=false;outdoorGroup.add(rainPoints);rainBase=vel;
-  const rainMist=new THREE.Mesh(new THREE.PlaneGeometry(80,165),new THREE.MeshBasicMaterial({color:0x34434a,transparent:true,opacity:.035,depthWrite:false,fog:true}));
+  rainPoints.userData.dropLen=dropLen;
+  const rainMist=new THREE.Mesh(new THREE.PlaneGeometry(80,165),new THREE.MeshBasicMaterial({color:0x34434a,transparent:true,opacity:.055,depthWrite:false,fog:true}));
   rainMist.rotation.x=-Math.PI/2;rainMist.position.set(0,.02,-95);outdoorGroup.add(rainMist);
   // several broken fence sections to make the route feel like a place, not an empty plane.
   const fenceMat=new THREE.MeshStandardMaterial({color:0x211c16,roughness:1});
@@ -1478,7 +1478,9 @@ function startOutdoorChapter(){
     createLizardEnemy(new THREE.Vector3(-12,0,-108));
   }
   enemies.forEach(e=>{if(e.type==='lizard'){e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);}});
-  scene.background.set(0x05090a);scene.fog=new THREE.FogExp2(0x091014,.024);
+  // Deep wet-forest atmosphere: the distance dissolves into cool fog.
+  scene.background.set(0x05090a);
+  scene.fog=new THREE.FogExp2(0x0b1518,.034);
   if(moonLight) moonLight.intensity=0;
   if(outdoorAmbient) outdoorAmbient.intensity=.075;
   if(outdoorHemi) outdoorHemi.intensity=.06;
@@ -1513,13 +1515,23 @@ function updateOutdoor(dt,t){
   player.pos.x=clamp(player.pos.x,-34,34);player.pos.z=clamp(player.pos.z,-174,-14.2);
   if(rainPoints){
     const a=rainPoints.geometry.attributes.position.array;
+    const lens=rainPoints.userData.dropLen;
     for(let i=0;i<rainBase.length;i++){
-      a[i*3]+=Math.sin(t*1.7+i)*.006;
-      a[i*3+1]-=rainBase[i]*dt;
-      a[i*3+2]-=rainBase[i]*.18*dt;
-      if(a[i*3+1]<0){a[i*3]=randRange(-22,22);a[i*3+1]=randRange(12,18);a[i*3+2]=randRange(-18,12)}
+      const j=i*6;
+      a[j+2]+=Math.sin(t*1.7+i)*.004;
+      a[j+5]=a[j+2];
+      a[j+1]-=rainBase[i]*dt;
+      a[j+4]=a[j+1]-lens[i];
+      a[j+0]+=Math.sin(t*1.1+i*.37)*.0015;
+      a[j+3]=a[j+0];
+      if(a[j+1]<0){
+        const x=randRange(-28,28), top=randRange(13,19), z=randRange(-22,14);
+        a[j]=x;a[j+1]=top;a[j+2]=z;
+        a[j+3]=x;a[j+4]=top-lens[i];a[j+5]=z;
+      }
     }
-    rainPoints.position.set(player.pos.x,0,player.pos.z-4);rainPoints.geometry.attributes.position.needsUpdate=true;
+    rainPoints.position.set(player.pos.x,0,player.pos.z-4);
+    rainPoints.geometry.attributes.position.needsUpdate=true;
   }
   if(lighthouse){
     lighthouse.rotation.y=Math.sin(t*.18)*.12;
