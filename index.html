@@ -341,12 +341,6 @@
 </div>
 
 <script>window.addEventListener('error',function(e){const el=document.getElementById('loading-screen');if(el){el.classList.remove('hidden');el.innerHTML='<div class="loading-inner"><p style="color:#e0954a">Game failed to start.</p><p style="color:#a89a80;font-size:.8rem;margin-top:8px">'+String(e.message||'Unknown error')+'</p></div>';}console.error('NIGHTLIGHT startup error:',e.error||e.message)});window.addEventListener('unhandledrejection',function(e){console.error('NIGHTLIGHT promise error:',e.reason||e)});</script><script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js';document.head.appendChild(s);"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script>
 (function () {
 
@@ -557,30 +551,11 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 
-// Polished rendering pass: restrained bloom on practical lights and the lighthouse.
-var nlComposer = null;
-var nlBloom = null;
-function nlInitPostFX() {
-  if (!THREE.EffectComposer || !THREE.RenderPass || !THREE.UnrealBloomPass) return;
-  nlComposer = new THREE.EffectComposer(renderer);
-  nlComposer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.25 : 1.75));
-  nlComposer.setSize(window.innerWidth, window.innerHeight);
-  nlComposer.addPass(new THREE.RenderPass(scene, camera));
-  nlBloom = new THREE.UnrealBloomPass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.22, 0.65, 0.88
-  );
-  nlBloom.threshold = 0.82;
-  nlBloom.strength = 0.22;
-  nlBloom.radius = 0.65;
-  nlComposer.addPass(nlBloom);
-}
-
+// Stable renderer. Post-processing is intentionally disabled for the r128 build.\n
 window.addEventListener('resize', function () {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  if (nlComposer) nlComposer.setSize(window.innerWidth, window.innerHeight);
 });
 nlInitPostFX();
 
@@ -3790,7 +3765,7 @@ function animate(now) {
   if (gameState === 'playing' || gameState === 'victory' || gameState === 'gameover') updateUI(dt);
 
   nlDirectorUpdate(dt, t);
-  if (nlComposer) nlComposer.render(); else renderer.render(scene, camera);
+  renderer.render(scene, camera);
 }
 
 /* ---------- kickoff ---------- */
