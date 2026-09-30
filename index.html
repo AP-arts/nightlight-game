@@ -1469,8 +1469,6 @@ function updateMazeBoss(e,dt){
   if(e.state==='introDrop'){
     e.vel.x*=Math.exp(-8*dt);
     e.vel.z*=Math.exp(-8*dt);
-    e.vel.y-=CFG.gravity*dt;
-
     if(e.pos.y<=0){
       e.pos.y=0;
       e.vel.y=0;
@@ -1558,8 +1556,6 @@ function updateMazeBoss(e,dt){
     }
   }else if(e.state==='leapAir'){
     e.facing+=shortestAngleDelta(e.facing,Math.atan2(e.leapTarget.x-e.pos.x,e.leapTarget.z-e.pos.z))*(1-Math.exp(-3*dt));
-    e.vel.y-=CFG.gravity*dt;
-
     // Airborne movement intentionally ignores the maze wall collision because the
     // attack is a leap into the open lighthouse arena.
     e.pos.x+=e.vel.x*dt;
