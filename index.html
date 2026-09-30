@@ -1100,33 +1100,124 @@ buildLevel();
 /* ============================== OUTDOOR CHAPTER ============================== */
 function createLizardMesh() {
   const group = new THREE.Group();
-  const skin = new THREE.MeshStandardMaterial({color:0x182019,roughness:0.92});
-  const skin2 = new THREE.MeshStandardMaterial({color:0x0d120e,roughness:1});
-  const belly = new THREE.MeshStandardMaterial({color:0x34352b,roughness:1});
-  const eye = new THREE.MeshBasicMaterial({color:0xd5c46d,toneMapped:false});
-  const claw = new THREE.MeshStandardMaterial({color:0x3b392d,roughness:.7,metalness:.15});
-  function mesh(g,m,x,y,z){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;group.add(o);return o}
-  const torso=mesh(new THREE.SphereGeometry(.42,14,10),skin,0,.95,0);
-  torso.scale.set(.72,1.25,.9);
-  mesh(new THREE.SphereGeometry(.27,12,8),belly,0,.87,.27);
-  const neck=mesh(new THREE.CylinderGeometry(.16,.22,.34,10),skin2,0,1.34,.02);
-  const head=mesh(new THREE.SphereGeometry(.3,14,10),skin,0,1.62,.05); head.scale.set(1,.82,1.15);
-  mesh(new THREE.SphereGeometry(.045,8,6),eye,-.11,1.69,.30);
-  mesh(new THREE.SphereGeometry(.045,8,6),eye,.11,1.69,.30);
-  const jaw=mesh(new THREE.SphereGeometry(.22,10,7),skin2,0,1.48,.24); jaw.scale.set(1,.55,1);
-  const tail=mesh(new THREE.CylinderGeometry(.07,.2,.95,9),skin2,0,.82,-.53); tail.rotation.x=Math.PI/2+.42;
-  const legs=[];
-  for(let side of [-1,1]){
-    const hip=mesh(new THREE.CylinderGeometry(.11,.14,.42,8),skin2,side*.2,.62,0); hip.rotation.z=side*.18;
-    const shin=mesh(new THREE.CylinderGeometry(.085,.12,.48,8),skin,side*.25,.29,.04); shin.rotation.z=-side*.12;
-    mesh(new THREE.BoxGeometry(.22,.08,.42),claw,side*.25,.055,.16);
-    legs.push({hip,shin,side});
+
+  // Marsh Stalker redesign inspired by the supplied reference:
+  // oversized rounded head, long neck/limbs, pale belly, large eyes,
+  // and a ragged collar/mantle. Colors stay dark for NIGHTLIGHT.
+  const skin = new THREE.MeshStandardMaterial({color:0x24351f,roughness:.86,metalness:.02});
+  const skinLight = new THREE.MeshStandardMaterial({color:0x45563a,roughness:.9});
+  const skinDark = new THREE.MeshStandardMaterial({color:0x111811,roughness:.96});
+  const belly = new THREE.MeshStandardMaterial({color:0x5a604d,roughness:1});
+  const cloth = new THREE.MeshStandardMaterial({color:0x351b1e,roughness:.9});
+  const eyeSocket = new THREE.MeshStandardMaterial({color:0x080a06,roughness:1});
+  const eyeIris = new THREE.MeshBasicMaterial({color:0xd5c46d,toneMapped:false});
+  const pupil = new THREE.MeshBasicMaterial({color:0x020202,toneMapped:false});
+  const claw = new THREE.MeshStandardMaterial({color:0x575444,roughness:.7,metalness:.08});
+
+  function add(g,m,x,y,z,sx,sy,sz){
+    const o=new THREE.Mesh(g,m);
+    o.position.set(x,y,z);
+    if(sx!==undefined) o.scale.set(sx,sy,sz);
+    o.castShadow=true;o.receiveShadow=true;group.add(o);return o;
   }
-  const armL=mesh(new THREE.CylinderGeometry(.07,.1,.48,8),skin2,-.34,1.02,.02); armL.rotation.z=-.3;
-  const armR=mesh(new THREE.CylinderGeometry(.07,.1,.48,8),skin2,.34,1.02,.02); armR.rotation.z=.3;
-  mesh(new THREE.SphereGeometry(.1,8,6),claw,-.42,.78,.06);
-  mesh(new THREE.SphereGeometry(.1,8,6),claw,.42,.78,.06);
-  return {group,body:torso,head,legs,armL,armR,eyeMats:[eye],mats:[skin,skin2,belly,claw],flash:[{mat:skin,base:skin.emissive.clone()},{mat:skin2,base:skin2.emissive.clone()},{mat:belly,base:belly.emissive.clone()},{mat:claw,base:claw.emissive.clone()}]};
+
+  const torso=add(new THREE.SphereGeometry(.48,16,12),skin,0,.95,0,.82,1.28,.90);
+  const bellyPatch=add(new THREE.SphereGeometry(.29,14,10),belly,0,.91,.37,.92,1.25,.78);
+  const neck=add(new THREE.CylinderGeometry(.16,.23,.40,12),skinLight,0,1.39,.01);
+  const head=add(new THREE.SphereGeometry(.36,16,12),skin,0,1.72,.05,1.02,.88,1.12);
+  const brow=add(new THREE.SphereGeometry(.20,12,8),skinLight,0,1.73,.22,1.45,.72,.72);
+  const snout=add(new THREE.SphereGeometry(.23,14,9),skinLight,0,1.62,.39,.92,.62,1.42);
+  const jaw=add(new THREE.SphereGeometry(.205,13,8),skinDark,0,1.51,.32,.96,.46,1.18);
+  const mouth=add(new THREE.BoxGeometry(.30,.035,.06),eyeSocket,0,1.545,.465);
+  mouth.castShadow=false;mouth.receiveShadow=false;
+
+  function eyePair(x){
+    const socket=add(new THREE.SphereGeometry(.084,12,8),eyeSocket,x,1.76,.30);
+    const iris=add(new THREE.SphereGeometry(.061,12,8),eyeIris,x,1.76,.355);
+    const p=add(new THREE.SphereGeometry(.029,10,6),pupil,x,1.76,.398);
+    socket.castShadow=false;iris.castShadow=false;p.castShadow=false;
+    return iris;
+  }
+  const irisL=eyePair(-.135), irisR=eyePair(.135);
+
+  const collar=add(new THREE.TorusGeometry(.31,.085,7,14),cloth,0,1.35,.01,1,1,.85);
+  collar.rotation.x=Math.PI/2;
+  const mantleL=add(new THREE.BoxGeometry(.38,.72,.10),cloth,-.28,1.15,-.17,.95,1.1,1);
+  const mantleR=add(new THREE.BoxGeometry(.38,.72,.10),cloth,.28,1.15,-.17,.95,1.1,1);
+  mantleL.rotation.z=-.18;mantleR.rotation.z=.18;
+
+  function makeArm(side){
+    const shoulder=new THREE.Group();
+    shoulder.position.set(side*.39,1.22,.01);
+    group.add(shoulder);
+
+    const upper=new THREE.Mesh(new THREE.CylinderGeometry(.075,.11,.46,9),skinDark);
+    upper.position.y=-.20;upper.rotation.z=-side*.11;upper.castShadow=true;upper.receiveShadow=true;shoulder.add(upper);
+
+    const foreGroup=new THREE.Group();
+    foreGroup.position.set(0,-.42,0);
+    shoulder.add(foreGroup);
+
+    const fore=new THREE.Mesh(new THREE.CylinderGeometry(.06,.085,.50,9),skin);
+    fore.position.y=-.23;fore.castShadow=true;fore.receiveShadow=true;foreGroup.add(fore);
+
+    const hand=new THREE.Mesh(new THREE.SphereGeometry(.10,10,7),skinLight);
+    hand.position.set(0,-.50,.01);hand.scale.set(.85,.72,1);hand.castShadow=true;hand.receiveShadow=true;foreGroup.add(hand);
+
+    for(let i=-1;i<=1;i++){
+      const f=new THREE.Mesh(new THREE.ConeGeometry(.018,.15,5),claw);
+      f.position.set(i*.045,-.57,.075);f.rotation.x=Math.PI/2;f.castShadow=true;foreGroup.add(f);
+    }
+    return {shoulder,foreGroup};
+  }
+  const armL=makeArm(-1),armR=makeArm(1);
+
+  function makeLeg(side){
+    const thighGroup=new THREE.Group();
+    thighGroup.position.set(side*.22,.62,0);
+    group.add(thighGroup);
+
+    const thigh=new THREE.Mesh(new THREE.CylinderGeometry(.11,.145,.43,9),skinDark);
+    thigh.position.y=-.20;thigh.rotation.z=side*.08;thigh.castShadow=true;thigh.receiveShadow=true;thighGroup.add(thigh);
+
+    const shinGroup=new THREE.Group();
+    shinGroup.position.set(0,-.40,.02);
+    thighGroup.add(shinGroup);
+
+    const shin=new THREE.Mesh(new THREE.CylinderGeometry(.085,.11,.45,9),skin);
+    shin.position.y=-.22;shin.castShadow=true;shin.receiveShadow=true;shinGroup.add(shin);
+
+    const foot=new THREE.Mesh(new THREE.SphereGeometry(.18,10,7),claw);
+    foot.position.set(0,-.47,.13);foot.scale.set(.95,.42,1.35);foot.castShadow=true;foot.receiveShadow=true;shinGroup.add(foot);
+
+    return {thighGroup,shinGroup,side};
+  }
+  const legs=[makeLeg(-1),makeLeg(1)];
+
+  const tail=new THREE.Group();
+  tail.position.set(0,.78,-.35);
+  group.add(tail);
+  const tailSeg1=new THREE.Mesh(new THREE.CylinderGeometry(.19,.11,.72,10),skinDark);
+  tailSeg1.rotation.x=Math.PI/2;tailSeg1.position.z=-.34;tailSeg1.castShadow=true;tailSeg1.receiveShadow=true;tail.add(tailSeg1);
+  const tailMid=new THREE.Group();
+  tailMid.position.z=-.69;tail.add(tailMid);
+  const tailSeg2=new THREE.Mesh(new THREE.CylinderGeometry(.11,.035,.78,9),skin);
+  tailSeg2.rotation.x=Math.PI/2;tailSeg2.position.z=-.37;tailSeg2.castShadow=true;tailSeg2.receiveShadow=true;tailMid.add(tailSeg2);
+
+  return {
+    group,body:torso,belly:bellyPatch,head,brow,snout,jaw,mouth,neck,collar,mantleL,mantleR,
+    legs,armL:armL.shoulder,armR:armR.shoulder,armLFore:armL.foreGroup,armRFore:armR.foreGroup,
+    tail,tailMid,eyeMats:[eyeIris],
+    mats:[skin,skinLight,skinDark,belly,cloth,claw],
+    flash:[
+      {mat:skin,base:skin.emissive.clone()},
+      {mat:skinLight,base:skinLight.emissive.clone()},
+      {mat:skinDark,base:skinDark.emissive.clone()},
+      {mat:belly,base:belly.emissive.clone()},
+      {mat:cloth,base:cloth.emissive.clone()},
+      {mat:claw,base:claw.emissive.clone()}
+    ]
+  };
 }
 
 function createLizardEnemy(spawn) {
@@ -1137,7 +1228,7 @@ function createLizardEnemy(spawn) {
     state:'patrol',stateTime:0,cooldown:randRange(.5,1.5),flash:0,hitCount:0,alerted:false,alertDelay:-1,
     canSee:false,perceiveTimer:.2,seeTimer:0,patrolTarget:new THREE.Vector3(),patrolWait:0,hasPatrol:false,
     lastPos:spawn.clone(),stuckTimer:0,stuckClock:0,sidestep:0,sideDir:1,attackHitDone:false,impactDone:false,
-    introTimer:0,deadTimer:0,walkPhase:0,stepAccum:0,wobble:Math.random()*6.28};
+    introTimer:0,deadTimer:0,walkPhase:0,stepAccum:0,wobble:Math.random()*6.28,attackSide:Math.random()<.5?-1:1};
   e.mesh.group.visible=true; enemies.push(e); return e;
 }
 
@@ -1157,6 +1248,7 @@ function updateLizard(e,dt) {
   } else if(e.state==='strike'){
     if(!e.attackHitDone && e.stateTime>.08){
       e.attackHitDone=true;
+      triggerShake(.55,.025);
       if(d<e.def.attackRange+0.15) dealDamageToPlayer(e.def.damage,e);
     }
     if(e.stateTime>.28){e.state='chase';e.stateTime=0}
@@ -1183,16 +1275,79 @@ function updateLizard(e,dt) {
 }
 
 function animateLizard(e,dt,t){
-  const m=e.mesh, walk=Math.min(1,Math.hypot(e.vel.x,e.vel.z)/e.def.speed);
-  e.walkPhase+=Math.hypot(e.vel.x,e.vel.z)*dt*2.8;
-  const s=Math.sin(e.walkPhase*2);
-  m.legs.forEach(function(l,i){l.hip.rotation.x=s*l.side*.32*walk;l.shin.rotation.x=-s*l.side*.22*walk});
-  m.armL.rotation.x=-s*.18*walk;m.armR.rotation.x=s*.18*walk;
-  m.head.rotation.x=Math.sin(t*2.2+e.wobble)*.035;
-  if(e.state==='windup') m.body.rotation.x=-.14;
-  else if(e.state==='strike') m.body.rotation.x=.18;
-  else m.body.rotation.x=0;
-  if(e.state==='dead') { const u=clamp(e.deadTimer/1.1,0,1);m.group.rotation.z=u*1.25;m.group.position.y=-u*.28; }
+  const m=e.mesh;
+  const speedNow=Math.hypot(e.vel.x,e.vel.z);
+  const walk=Math.min(1,speedNow/e.def.speed);
+  e.walkPhase+=speedNow*dt*2.8;
+
+  // Reference-inspired loose reptile gait.
+  const step=Math.sin(e.walkPhase*1.85);
+  m.legs[0].thighGroup.rotation.x=expDampScalar(m.legs[0].thighGroup.rotation.x,step*.26*walk,10,dt);
+  m.legs[1].thighGroup.rotation.x=expDampScalar(m.legs[1].thighGroup.rotation.x,-step*.26*walk,10,dt);
+  m.legs[0].shinGroup.rotation.x=expDampScalar(m.legs[0].shinGroup.rotation.x,-step*.17*walk,10,dt);
+  m.legs[1].shinGroup.rotation.x=expDampScalar(m.legs[1].shinGroup.rotation.x,step*.17*walk,10,dt);
+
+  const armSwing=Math.sin(e.walkPhase+Math.PI)*.14*walk;
+  const idleHead=Math.sin(t*2.0+e.wobble)*.035;
+  let leftX=armSwing,rightX=-armSwing;
+  let leftFore=-armSwing*.55,rightFore=armSwing*.55;
+  let bodyX=0,bodyY=0,headX=idleHead,jawX=0;
+
+  // Subtle idle motion keeps the silhouette alive even when standing still.
+  m.head.rotation.x=expDampScalar(m.head.rotation.x,headX,7,dt);
+  m.tail.rotation.y=expDampScalar(m.tail.rotation.y,Math.sin(t*1.7+e.wobble)*.10,5,dt);
+  m.tailMid.rotation.y=expDampScalar(m.tailMid.rotation.y,Math.sin(t*2.2+e.wobble+.8)*.16,6,dt);
+  m.mantleL.rotation.x=expDampScalar(m.mantleL.rotation.x,Math.sin(t*1.6+e.wobble)*.035,5,dt);
+  m.mantleR.rotation.x=expDampScalar(m.mantleR.rotation.x,Math.sin(t*1.6+e.wobble+1.2)*.035,5,dt);
+
+  // Full attack gesture: recoil, then a fast one-arm claw swipe with an
+  // accompanying body/head snap and jaw opening.
+  if(e.state==='windup'){
+    const u=easeOutCubic(clamp(e.stateTime/.32,0,1));
+    const side=e.attackSide;
+    bodyX=-.15*u; bodyY=side*.13*u; headX=-.10*u; jawX=-.08*u;
+    if(side<0){
+      leftX=-.82*u; leftFore=-.48*u;
+      rightX=.17*u; rightFore=.08*u;
+    } else {
+      rightX=-.82*u; rightFore=-.48*u;
+      leftX=-.17*u; leftFore=-.08*u;
+    }
+  } else if(e.state==='strike'){
+    const u=easeOutCubic(clamp(e.stateTime/.28,0,1));
+    const snap=Math.sin(Math.PI*Math.min(1,u));
+    const side=e.attackSide;
+    bodyX=.22*snap; bodyY=side*.10*snap; headX=.13*snap;
+    jawX=.34*Math.sin(Math.PI*u);
+    if(side<0){
+      leftX=.98*u; leftFore=1.22*u;
+      rightX=.16*(1-u); rightFore=.10*(1-u);
+    } else {
+      rightX=.98*u; rightFore=1.22*u;
+      leftX=-.16*(1-u); leftFore=-.10*(1-u);
+    }
+  }
+
+  m.legs[0].thighGroup.rotation.x=expDampScalar(m.legs[0].thighGroup.rotation.x,step*.26*walk,10,dt);
+  m.legs[1].thighGroup.rotation.x=expDampScalar(m.legs[1].thighGroup.rotation.x,-step*.26*walk,10,dt);
+  m.armL.rotation.x=expDampScalar(m.armL.rotation.x,leftX,30,dt);
+  m.armR.rotation.x=expDampScalar(m.armR.rotation.x,rightX,30,dt);
+  m.armLFore.rotation.x=expDampScalar(m.armLFore.rotation.x,leftFore,34,dt);
+  m.armRFore.rotation.x=expDampScalar(m.armRFore.rotation.x,rightFore,34,dt);
+  m.body.rotation.x=expDampScalar(m.body.rotation.x,bodyX,24,dt);
+  m.body.rotation.y=expDampScalar(m.body.rotation.y,bodyY,20,dt);
+  m.head.rotation.x=expDampScalar(m.head.rotation.x,headX,18,dt);
+  m.jaw.rotation.x=expDampScalar(m.jaw.rotation.x,jawX,30,dt);
+  m.mouth.rotation.x=m.jaw.rotation.x;
+
+  if(e.flash>0) m.head.rotation.z=expDampScalar(m.head.rotation.z,Math.sin(t*42)*.09,24,dt);
+  else m.head.rotation.z=expDampScalar(m.head.rotation.z,0,8,dt);
+
+  if(e.state==='dead'){
+    const u=clamp(e.deadTimer/1.1,0,1);
+    m.group.rotation.z=u*1.18;
+    m.group.position.y=e.pos.y-u*.28;
+  }
   applyFlash(m,e.flash);
 }
 
