@@ -1342,8 +1342,10 @@ function updateLizard(e,dt) {
   } else {
     if(e.alerted && d<10){
       const nx=dx/(d||1),nz=dz/(d||1);
-      moveToward2D(e.vel,nx*e.def.speed,nz*e.def.speed,11*dt);
-      e.facing+=shortestAngleDelta(e.facing,Math.atan2(dx,dz))*(1-Math.exp(-8*dt));
+      let chaseAng=Math.atan2(dx,dz);
+      if(e.sidestep>0){ e.sidestep-=dt; chaseAng+=e.sideDir*.9; }
+      moveToward2D(e.vel,Math.sin(chaseAng)*e.def.speed,Math.cos(chaseAng)*e.def.speed,11*dt);
+      e.facing+=shortestAngleDelta(e.facing,chaseAng)*(1-Math.exp(-8*dt));
     } else {
       if(!e.hasPatrol||Math.hypot(e.patrolTarget.x-e.pos.x,e.patrolTarget.z-e.pos.z)<.7){
         e.patrolTarget.set(clamp(e.pos.x+randRange(-7,7),-34,34),0,clamp(e.pos.z+randRange(-8,8),-170,-16));
@@ -1957,6 +1959,7 @@ function startOutdoorChapter(){
   let lizardIndex=0;
   for(let i=0;i<enemies.length;i++){
     if(enemies[i].type==='lizard'){
+      enemies[i].mazeLizard=true;
       if(lizardIndex<desiredLizardSpawns.length) enemies[i].spawn.copy(desiredLizardSpawns[lizardIndex]);
       lizardIndex++;
     }
@@ -1964,6 +1967,7 @@ function startOutdoorChapter(){
   while(lizardIndex<desiredLizardSpawns.length){
     const ne=createLizardEnemy(desiredLizardSpawns[lizardIndex]);
     ne.spawn.copy(desiredLizardSpawns[lizardIndex]);
+    ne.mazeLizard=true;
     lizardIndex++;
   }
 
@@ -1977,15 +1981,16 @@ function startOutdoorChapter(){
     }
   }
   while(spiderIndex<spiderSpawns.length){
-    createMazeSpiderEnemy(spiderSpawns[spiderIndex]);
+    const se=createMazeSpiderEnemy(spiderSpawns[spiderIndex]);
+    se.spawn.copy(spiderSpawns[spiderIndex]);
     spiderIndex++;
   }
 
   enemies.forEach(e=>{
-    if(e.type==='lizard' && lizardIndex>0){
-      e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);
-    } else if(e.mazeSpider){
-      e.mesh.group.visible=true;e.active=true;e.state='patrol';e.hp=e.maxHp;e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);
+    if(e.mazeLizard || e.mazeSpider){
+      e.mesh.group.visible=true;e.active=true;e.state='patrol';e.stateTime=0;e.hp=e.maxHp;
+      e.pos.copy(e.spawn);e.vel.set(0,0,0);e.mesh.group.position.copy(e.pos);e.mesh.group.rotation.y=e.facing;
+      e.hasPatrol=false;e.alerted=false;e.cooldown=randRange(.35,1.1);
     }
   });
   // Deep wet-forest atmosphere: the distance dissolves into cool fog.
