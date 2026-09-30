@@ -1402,18 +1402,37 @@ function buildOutdoorChapter(){
   const beaconMat=new THREE.MeshBasicMaterial({color:0xffd98a,toneMapped:false});
   const beacon=new THREE.Mesh(new THREE.SphereGeometry(.62,12,8),beaconMat);beacon.position.y=19.2;lighthouse.add(beacon);
   const beaconLight=new THREE.PointLight(0xffc56e,4.5,32,2);beaconLight.position.set(0,19.2,0);lighthouse.add(beaconLight);
+  // 360-degree lighthouse sweep: the SpotLight is the real light source, while
+  // the subtle cone is only the visible atmospheric beam.
   const beaconPivot=new THREE.Group();
   beaconPivot.position.set(0,19.2,0);
-  const sweepBeam=new THREE.Mesh(new THREE.ConeGeometry(.22,22,12,1,true),
-    new THREE.MeshBasicMaterial({color:0xffe0a8,transparent:true,opacity:.12,depthWrite:false,side:THREE.DoubleSide,fog:false}));
+
+  const sweepTarget=new THREE.Object3D();
+  sweepTarget.position.set(0,0,-42);
+  beaconPivot.add(sweepTarget);
+
+  const sweepLight=new THREE.SpotLight(0xffd58a,10,58,Math.PI/10,0.55,1.5);
+  sweepLight.position.set(0,0,0);
+  sweepLight.target=sweepTarget;
+  sweepLight.castShadow=false;
+  beaconPivot.add(sweepLight);
+
+  const sweepBeam=new THREE.Mesh(
+    new THREE.ConeGeometry(.32,42,16,1,true),
+    new THREE.MeshBasicMaterial({
+      color:0xffd58a,transparent:true,opacity:.035,
+      blending:THREE.AdditiveBlending,depthWrite:false,
+      side:THREE.DoubleSide,fog:false
+    })
+  );
   sweepBeam.rotation.x=Math.PI/2;
-  sweepBeam.position.z=-11;
+  sweepBeam.position.z=-21;
   beaconPivot.add(sweepBeam);
+
   lighthouse.add(beaconPivot);
   lighthouse.userData.beaconPivot=beaconPivot;
+  lighthouse.userData.beaconTarget=sweepTarget;
   const cap=new THREE.ConeGeometry(2.5,1.3,12);const roof=new THREE.Mesh(cap,new THREE.MeshStandardMaterial({color:0x151714,roughness:.85}));roof.position.y=20.85;lighthouse.add(roof);
-  const beam=new THREE.Mesh(new THREE.CylinderGeometry(.3,7,36,32,1,true),new THREE.MeshBasicMaterial({color:0xffd78c,transparent:true,opacity:.045,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false}));
-  beam.rotation.z=Math.PI/2;beam.position.set(0,19.2,18);lighthouse.add(beam);
   outdoorGroup.add(lighthouse);
   // rain point cloud; updated around Wick so the rain feels local and endless.
   const N=900,pos=new Float32Array(N*3),vel=new Float32Array(N);
