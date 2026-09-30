@@ -2623,7 +2623,12 @@ function updateOutdoor(dt,t){
     else if(enemies[i].mazeBoss && enemies[i].active) updateMazeBoss(enemies[i],dt);
   }
 
-  if(!mazeBossStarted && !mazeBossDefeated && mazeBoss && player.pos.z < -144.2 && Math.abs(player.pos.x) < 8.5){
+  // Boss trigger is ONLY at the north maze exit, not inside the final maze cells.
+  // The exit is the center opening: x roughly -2.1..2.1, just beyond the north wall.
+  const mazeNorthExitZ=-147.05;
+  const mazeNorthExitHalfW=2.05;
+  if(!mazeBossStarted && !mazeBossDefeated && mazeBoss &&
+     player.pos.z < mazeNorthExitZ && Math.abs(player.pos.x) < mazeNorthExitHalfW){
     startMazeBossFight();
   }
 
