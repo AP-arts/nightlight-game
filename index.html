@@ -1373,7 +1373,7 @@ function buildOutdoorChapter(){
   const top=new THREE.Mesh(new THREE.CylinderGeometry(2.25,2.25,2.2,12),new THREE.MeshStandardMaterial({color:0x30312d,roughness:.7}));top.position.y=19.1;lighthouse.add(top);
   const beaconMat=new THREE.MeshBasicMaterial({color:0xffd98a,toneMapped:false});
   const beacon=new THREE.Mesh(new THREE.SphereGeometry(.62,12,8),beaconMat);beacon.position.y=19.2;lighthouse.add(beacon);
-  const beaconLight=new THREE.PointLight(0xffc56e,4.5,32,2);beaconLight.position.set(0,19.2,0);lighthouse.add(beaconLight);
+  const beaconLight=new THREE.PointLight(0xffb84a,0.9,42,2);beaconLight.position.set(0,19.2,0);lighthouse.add(beaconLight);
   // Real 360-degree lighthouse beacon. No fake mesh beam: the SpotLight
   // itself sweeps the forest and has distance=0, meaning no distance cutoff.
   const beaconPivot=new THREE.Group();
@@ -1383,7 +1383,7 @@ function buildOutdoorChapter(){
   sweepTarget.position.set(0,0,-140);
   beaconPivot.add(sweepTarget);
 
-  const sweepLight=new THREE.SpotLight(0xffa83d,5,0,Math.PI/5,0.42,1.1);
+  const sweepLight=new THREE.SpotLight(0xffa83d,4,0,Math.PI/8,0.42,1.1);
   sweepLight.position.set(0,0,0);
   sweepLight.target=sweepTarget;
   sweepLight.castShadow=true;
@@ -1395,13 +1395,13 @@ function buildOutdoorChapter(){
   // Stylized visible lighthouse beam: a broad translucent cone matching the real
   // SpotLight. Its low opacity/emission gives the beam a soft presence in fog/rain.
   const beamPath=new THREE.Mesh(
-    new THREE.ConeGeometry(7.0,120,32,1,true),
+    new THREE.ConeGeometry(24,120,32,1,true),
     new THREE.MeshStandardMaterial({
       color:0xffa52f,
       emissive:0xff8c20,
-      emissiveIntensity:.07,
+      emissiveIntensity:.055,
       transparent:true,
-      opacity:.018,
+      opacity:.014,
       blending:THREE.AdditiveBlending,
       depthWrite:false,
       side:THREE.DoubleSide,
