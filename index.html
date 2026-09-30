@@ -2049,6 +2049,7 @@ function startOutdoorChapter(){
   victoryTriggered=false;
   outdoorMazeHintShown=false;
   outdoorMazeInteractLatched=false;
+  outdoorMazeNearbyCandle=-1;
   for(let i=0;i<outdoorMazeCandles.length;i++){
     const c=outdoorMazeCandles[i];c.lit=false;c.flame.visible=false;c.light.intensity=0;c.glow.material.opacity=0;
   }
@@ -2124,18 +2125,23 @@ function startOutdoorChapter(){
 function updateMazeCandles(dt,t){
   if(!outdoorMode || !outdoorMazeCandles.length){
     outdoorMazeInteractLatched=false;
+    outdoorMazeNearbyCandle=-1;
     return;
   }
 
-  let nearest=null,nearestD=999;
+  let nearest=null,nearestD=999,nearestIndex=-1;
   for(let i=0;i<outdoorMazeCandles.length;i++){
     const c=outdoorMazeCandles[i];
     if(c.lit) continue;
     const d=Math.hypot(player.pos.x-c.group.position.x,player.pos.z-c.group.position.z);
-    if(d<1.85 && d<nearestD){nearest=c;nearestD=d;}
+    if(d<1.85 && d<nearestD){nearest=c;nearestD=d;nearestIndex=i;}
   }
 
   const interactPressed=!!keys['r'];
+  if(nearestIndex!==outdoorMazeNearbyCandle && nearest){
+    showObjective('Press R to light the candle.',1.5);
+  }
+  outdoorMazeNearbyCandle=nearestIndex;
   if(nearest && !outdoorMazeInteractLatched && interactPressed){
     nearest.lit=true;
     nearest.flame.visible=true;
@@ -2167,9 +2173,6 @@ function updateMazeCandles(dt,t){
     c.glow.material.opacity=.31+Math.sin(t*7+c.phase)*.055;
   }
 
-  if(nearest && !nearest.lit && !interactPressed && Math.random()<0.08){
-    showObjective('Press R to light the candle.',1.6);
-  }
 }
 
 function updateOutdoor(dt,t){
@@ -2997,6 +3000,11 @@ function sfx(name, v) {
       noiseHit(t, 1.6, 0.22 * v, 'lowpass', 700, 120, 0.8); break;
     case 'wardenDie': tone(110, 'sawtooth', t, 1.5, 0.25 * v, 28); noiseHit(t, 1.2, 0.2 * v, 'lowpass', 500, 60, 0.8); break;
     case 'pickup': tone(660, 'sine', t, 0.4, 0.14 * v); tone(990, 'sine', t + 0.09, 0.4, 0.12 * v); tone(1320, 'sine', t + 0.18, 0.5, 0.1 * v); break;
+    case 'candle':
+      noiseHit(t, 0.08, 0.12 * v, 'highpass', 1800, 700, 0.8);
+      tone(420, 'triangle', t, 0.16, 0.12 * v, 760);
+      tone(760, 'sine', t + 0.08, 0.28, 0.09 * v, 1040);
+      break;
     case 'jump': noiseHit(t, 0.1, 0.1 * v, 'bandpass', 400, 900, 1); break;
     case 'land': noiseHit(t, 0.11, 0.2 * v, 'lowpass', 420, 120, 0.8); tone(70, 'sine', t, 0.12, 0.18 * v, 45); break;
     case 'dodge': noiseHit(t, 0.26, 0.17 * v, 'bandpass', 300, 1300, 0.9); break;
