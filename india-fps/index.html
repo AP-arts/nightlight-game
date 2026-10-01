@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>India Strike — Multiplayer FPS</title>
+<link rel="stylesheet" href="./style.css">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/","colyseus.js":"https://cdn.jsdelivr.net/npm/colyseus.js@0.16.4/dist/colyseus.js/+esm"}}</script>
+</head>
+<body>
+<div id="menu" class="screen">
+  <div class="panel">
+    <div class="eyebrow">INDIA STRIKE / WEB FPS</div>
+    <h1>INDIA<br><span>STRIKE</span></h1>
+    <p class="sub">A multiplayer FPS prototype set in a fictional Indian market district.</p>
+    <input id="name" maxlength="16" placeholder="Your name" value="Player">
+    <div class="row">
+      <button id="create">CREATE ROOM</button>
+      <button id="join">JOIN ROOM</button>
+    </div>
+    <input id="room" maxlength="8" placeholder="ROOM CODE (e.g. A7K2)">
+    <div id="status">Choose Create Room or enter a room code.</div>
+  </div>
+</div>
+<div id="hud" hidden>
+  <div class="top"><b>INDIA STRIKE</b><span id="roomLabel"></span><span id="players"></span></div>
+  <div id="crosshair">+</div>
+  <div class="bottom">
+    <div><span id="weaponName">PISTOL</span><small> [1] / [2]</small></div>
+    <div class="health"><i id="health"></i></div>
+    <div class="ammo" id="ammo">12 / ∞</div>
+    <div class="stats">K <b id="kills">0</b> · D <b id="deaths">0</b></div>
+  </div>
+  <div id="hint">WASD move · SHIFT sprint · SPACE jump · CLICK fire · R reload · ESC cursor</div>
+</div>
+<script type="module" src="./game.js"></script>
+</body>
+</html>
