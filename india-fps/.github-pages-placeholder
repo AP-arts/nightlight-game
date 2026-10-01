@@ -1,0 +1,1 @@
+Client is static and can be published from this directory. The multiplayer server must run on a WebSocket-capable host such as Railway.
